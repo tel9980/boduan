@@ -145,6 +145,18 @@ export function clearHistory(): void {
   }
 }
 
+export function deleteHistoryItem(id: string): boolean {
+  try {
+    const history = getHistory(50);
+    const filtered = history.filter(h => h.id !== id);
+    localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(filtered));
+    return true;
+  } catch (error) {
+    console.error('删除历史记录失败:', error);
+    return false;
+  }
+}
+
 // ==================== 预设方案 ====================
 
 export function getPresets(): FilterPreset[] {

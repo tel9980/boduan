@@ -14,7 +14,7 @@ import MarketEnvironmentComponent from './components/MarketEnvironment';
 import FavoritesPanel from './components/FavoritesPanel';
 import QuickFilters from './components/QuickFilters';
 import StockComparison from './components/StockComparison';
-import { addHistory } from './utils/localStorage';
+import { addHistory, getHistory, deleteHistoryItem, clearHistory } from './utils/localStorage';
 import { getCachedScreenResult, setCachedScreenResult, clearScreenCache, getCacheRemainingTime } from './utils/localStorage';
 import { getSettings, toggleTheme, updateSettings } from './utils/localStorage';
 import './App.css';
@@ -81,6 +81,7 @@ function App() {
   const [tableDensity, setTableDensity] = useState<'compact' | 'standard' | 'comfortable'>(getSettings().tableDensity); // 表格密度
   const [showSettings, setShowSettings] = useState<boolean>(false); // 显示设置面板
   const [cacheExpiry, setCacheExpiry] = useState<number>(getSettings().cacheExpiry); // 缓存过期时间（分钟）
+  const [showHistory, setShowHistory] = useState<boolean>(false); // 显示历史记录面板
 
   // 取消请求的控制器
   const cancelTokenSource = useRef<any>(null);
@@ -400,6 +401,29 @@ function App() {
     alert(`✅ 缓存过期时间已设置为 ${minutes} 分钟`);
   };
 
+  // 恢复历史筛选条件
+  const handleRestoreHistory = (historyItem: any) => {
+    setFilterConfig(historyItem.config);
+    setShowHistory(false);
+    alert('✅ 已恢复历史筛选条件！');
+  };
+
+  // 删除单条历史记录
+  const handleDeleteHistory = (id: string) => {
+    if (confirm('确定要删除这条历史记录吗？')) {
+      deleteHistoryItem(id);
+      alert('✅ 历史记录已删除！');
+    }
+  };
+
+  // 清空所有历史记录
+  const handleClearAllHistory = () => {
+    if (confirm('确定要清空所有历史记录吗？此操作不可恢复。')) {
+      clearHistory();
+      alert('✅ 所有历史记录已清空！');
+    }
+  };
+
   // 批量选择
   const handleSelectStock = (code: string) => {
     const newSelected = new Set(selectedStocks);
@@ -626,6 +650,23 @@ function App() {
             >
                 ⚙️ 设置
             </button>
+            <button 
+                onClick={() => setShowHistory(!showHistory)}
+                style={{
+                    marginLeft: '8px',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    borderRadius: '4px',
+                    border: '1px solid #52c41a',
+                    background: showHistory ? '#52c41a' : '#fff',
+                    color: showHistory ? '#fff' : '#52c41a',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                }}
+                title="筛选历史记录"
+            >
+                📜 历史
+            </button>
           </div>
           <p className="tagline">基于量价分析的A股精选系统 v4.6.0 | 免费真实数据版</p>
         </div>
@@ -720,6 +761,157 @@ function App() {
         {showSettings && (
           <div 
             onClick={() => setShowSettings(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 999
+            }}
+          />
+        )}
+
+        {/* 历史记录面板 */}
+        {showHistory && (
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'var(--bg-card)',
+            border: '2px solid #52c41a',
+            borderRadius: '12px',
+            padding: '24px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            zIndex: 1000,
+            minWidth: '600px',
+            maxWidth: '800px',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>📜 筛选历史记录</h3>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  onClick={handleClearAllHistory}
+                  style={{
+                    padding: '4px 12px',
+                    background: '#ff4d4f',
+                    border: 'none',
+                    borderRadius: '4px',
+                    color: 'white',
+                    fontSize: '12px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  清空全部
+                </button>
+                <button 
+                  onClick={() => setShowHistory(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '20px',
+                    cursor: 'pointer',
+                    color: 'var(--text-secondary)'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              {getHistory(20).length === 0 ? (
+                <div style={{ 
+                  textAlign: 'center', 
+                  padding: '40px', 
+                  color: 'var(--text-secondary)',
+                  fontSize: '14px'
+                }}>
+                  暂无历史记录
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {getHistory(20).map((item) => (
+                    <div 
+                      key={item.id}
+                      style={{
+                        padding: '16px',
+                        background: 'var(--bg-secondary)',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                            {new Date(item.timestamp).toLocaleString('zh-CN', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: '1.6' }}>
+                            <span style={{ fontWeight: 'bold' }}>筛选条件：</span>
+                            涨幅 {item.config.changeMin}%~{item.config.changeMax}% | 
+                            量比 {item.config.volumeRatioMin}~{item.config.volumeRatioMax} | 
+                            市值 {item.config.marketCapMin || 0}~{item.config.marketCapMax}亿
+                            {item.config.isBandTradingMode && <span style={{ marginLeft: '8px', padding: '2px 6px', background: '#1890ff', color: 'white', borderRadius: '4px', fontSize: '11px' }}>波段</span>}
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#52c41a', marginTop: '6px' }}>
+                            筛选结果：{item.resultCount} 只股票
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px', marginLeft: '16px' }}>
+                          <button
+                            onClick={() => handleRestoreHistory(item)}
+                            style={{
+                              padding: '6px 12px',
+                              background: '#52c41a',
+                              border: 'none',
+                              borderRadius: '4px',
+                              color: 'white',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            恢复
+                          </button>
+                          <button
+                            onClick={() => handleDeleteHistory(item.id)}
+                            style={{
+                              padding: '6px 12px',
+                              background: 'transparent',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: '4px',
+                              color: 'var(--text-secondary)',
+                              fontSize: '12px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            删除
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* 历史面板遮罩层 */}
+        {showHistory && (
+          <div 
+            onClick={() => setShowHistory(false)}
             style={{
               position: 'fixed',
               top: 0,

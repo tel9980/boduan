@@ -125,3 +125,63 @@ export async function copyStockCodes(stocks: ScreenedStock[]) {
     alert(`已复制${stocks.length}只股票代码到剪贴板`);
   }
 }
+
+/**
+ * 导出股票数据为JSON格式
+ */
+export function exportToJSON(stocks: ScreenedStock[], filename: string = 'stocks.json') {
+  if (!stocks || stocks.length === 0) {
+    alert('没有数据可导出');
+    return;
+  }
+
+  const jsonContent = JSON.stringify(stocks, null, 2);
+  const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * 导出筛选历史为JSON格式
+ */
+export function exportHistoryToJSON(history: any[], filename: string = 'screening_history.json') {
+  if (!history || history.length === 0) {
+    alert('没有历史记录可导出');
+    return;
+  }
+
+  const jsonContent = JSON.stringify(history, null, 2);
+  const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', filename);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * 导出为Excel格式（实际是CSV，但Excel可以打开）
+ */
+export function exportToExcel(stocks: ScreenedStock[], filename: string = 'stocks.xlsx') {
+  // 使用CSV格式，但文件名为.xlsx，Excel会自动识别
+  exportToCSV(stocks, filename.replace('.xlsx', '.csv'));
+}
