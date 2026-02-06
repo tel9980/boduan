@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { ScreenedStock } from '../api/stock';
 import StockMiniChart from './StockMiniChart';
+import StockDetail from './StockDetail';
 
 interface StockCardProps {
   stock: ScreenedStock;
 }
 
 const StockCard: React.FC<StockCardProps> = ({ stock }) => {
+  const [showDetail, setShowDetail] = useState(false);
+
   // 根据评分确定卡片边框颜色
   const getBorderColor = (score: number) => {
     if (score >= 80) return '#52c41a';  // 绿色 - 优质
@@ -19,24 +22,26 @@ const StockCard: React.FC<StockCardProps> = ({ stock }) => {
   const borderColor = getBorderColor(score);
 
   return (
-    <div style={{
-      background: '#fff', 
-      padding: '15px', 
-      borderRadius: '8px', 
-      border: `2px solid ${borderColor}`, 
-      boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-      transition: 'all 0.3s ease',
-      cursor: 'pointer'
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = 'translateY(0)';
-      e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)';
-    }}
-    >
+    <>
+      <div style={{
+        background: '#fff', 
+        padding: '15px', 
+        borderRadius: '8px', 
+        border: `2px solid ${borderColor}`, 
+        boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+        transition: 'all 0.3s ease',
+        cursor: 'pointer'
+      }}
+      onClick={() => setShowDetail(true)}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-2px)';
+        e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.08)';
+      }}
+      >
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px'}}>
          <div>
             <div style={{fontSize: '18px', fontWeight: 'bold', color: '#333', marginBottom: '4px'}}>{stock.name}</div>
@@ -198,6 +203,12 @@ const StockCard: React.FC<StockCardProps> = ({ stock }) => {
          </div>
       )}
     </div>
+
+    {/* 股票详情弹窗 */}
+    {showDetail && (
+      <StockDetail stock={stock} onClose={() => setShowDetail(false)} />
+    )}
+  </>
   );
 };
 

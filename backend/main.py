@@ -1,7 +1,7 @@
 """
-A股波段交易筛选系统 - 专业版 v4.2.0
+A股波段交易筛选系统 - 专业版 v4.3.0
 策略：主板+创业板融资融券标的，波段交易，严格风控
-新增：缓存机制、性能优化、市场环境判断
+新增：股票详情、数据导出、错误重试、加载优化
 """
 
 import os
@@ -28,7 +28,7 @@ import pandas as pd
 app = FastAPI(
     title="A股波段交易筛选系统",
     description="专注主板+创业板融资融券标的，波段交易策略，每次最多3只",
-    version="4.2.0"
+    version="4.3.0"
 )
 
 # 配置CORS
@@ -67,7 +67,7 @@ BAND_TRADING_CONFIG = {
 
 print(f"""
 ╔══════════════════════════════════════════════════════╗
-║     A股波段交易筛选系统 v4.2.0                       ║
+║     A股波段交易筛选系统 v4.3.0                       ║
 ║                                                      ║
 ║  策略配置：                                          ║
 ║  • 板块：主板 + 创业板                               ║
@@ -76,30 +76,50 @@ print(f"""
 ║  • 涨幅范围：-2% ~ 5%（不追涨）                      ║
 ║  • 持仓限制：最多3只                                 ║
 ║  • 风控：排除ST、亏损股                              ║
-║  • 新增：缓存机制、性能优化                          ║
+║  • 新增：详情页、导出、重试机制                      ║
 ╚══════════════════════════════════════════════════════╝
 """)
 
 
-def fetch_qq_stock_data(codes: List[str], timeout: int = 30) -> str:
-    """使用curl调用腾讯股票API"""
-    try:
-        formatted_codes = ",".join(codes)
-        url = f"https://qt.gtimg.cn/q={formatted_codes}"
-        
-        cmd = ['curl', '-s', '--connect-timeout', str(timeout), url]
-        result = subprocess.run(cmd, capture_output=True, timeout=timeout + 5)
-        
-        if result.returncode == 0:
-            for enc in ['gbk', 'gb2312', 'utf-8', 'latin-1']:
-                try:
-                    return result.stdout.decode(enc)
-                except (UnicodeDecodeError, LookupError):
-                    continue
-            return result.stdout.decode('latin-1')
-        raise Exception(f"请求失败: {result.stderr.decode('utf-8', errors='ignore')}")
-    except subprocess.TimeoutExpired:
-        raise Exception("请求超时")
+def fetch_qq_stock_data(codes: List[str], timeout: int = 20, max_retries: int = 3) -> str:
+    """使用curl调用腾讯股票API（带重试机制）"""
+    formatted_codes = ",".join(codes)
+    url = f"https://qt.gtimg.cn/q={formatted_codes}"
+    
+    for attempt in range(max_retries):
+        try:
+            cmd = ['curl', '-s', '--connect-timeout', str(timeout), url]
+            result = subprocess.run(cmd, capture_output=True, timeout=timeout + 5)
+            
+            if result.returncode == 0:
+                for enc in ['gbk', 'gb2312', 'utf-8', 'latin-1']:
+                    try:
+                        return result.stdout.decode(enc)
+                    except (UnicodeDecodeError, LookupError):
+                        continue
+                return result.stdout.decode('latin-1')
+            
+            # 如果不是最后一次尝试，等待后重试
+            if attempt < max_retries - 1:
+                time.sleep(0.5 * (attempt + 1))  # 递增等待时间
+                continue
+            
+            raise Exception(f"请求失败: {result.stderr.decode('utf-8', errors='ignore')}")
+            
+        except subprocess.TimeoutExpired:
+            if attempt < max_retries - 1:
+                print(f"⚠️ 请求超时，正在重试 ({attempt + 1}/{max_retries})...")
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise Exception("请求超时（已重试多次）")
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"⚠️ 请求异常: {e}，正在重试 ({attempt + 1}/{max_retries})...")
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise
+    
+    raise Exception("请求失败（已达到最大重试次数）")
 
 
 def parse_qq_stock_line(line: str) -> Dict[str, Any]:

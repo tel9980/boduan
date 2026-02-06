@@ -31,6 +31,31 @@ export interface ScreenedStock {
   ai_analysis?: string;
   beginner_score?: number;
   beginner_tags?: string[];
+  score?: number;  // 新增：波段交易评分
+  risk_level?: string;  // 新增：风险等级
+  reasons?: string[];  // 新增：推荐理由
+  warnings?: string[];  // 新增：风险提示
+  margin_info?: {  // 新增：融资融券信息
+    is_margin_eligible: boolean;
+    margin_balance: number;
+    short_balance: number;
+    margin_ratio: number;
+    net_flow: number;
+    margin_score: number;
+    has_data: boolean;
+  };
+  capital_flow?: {  // 新增：资金流向
+    main_inflow: number;
+    is_inflow: boolean;
+    flow_strength: string;
+    has_data: boolean;
+  };
+  board_type?: {  // 新增：板块类型
+    type: string;
+    name: string;
+    color: string;
+    allowed?: boolean;
+  };
   kline?: {
     date: string;
     open: number;
@@ -324,6 +349,20 @@ export async function screenStocks(params?: {
     market_cap_range: string;
   };
   data: ScreenedStock[];
+  market_environment?: {
+    status: string;
+    description: string;
+    advice: string;
+    statistics: {
+      total_stocks: number;
+      up_count: number;
+      down_count: number;
+      up_ratio: number;
+      avg_change: number;
+      avg_volume_ratio: number;
+    };
+    timestamp: string;
+  };
 }> {
   const response = await api.get('/screen', { params });
   return response.data;

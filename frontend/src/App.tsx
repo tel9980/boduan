@@ -600,6 +600,48 @@ function App() {
                 >
                   {isScreenedCollapsed ? '📂 展开' : '📁 折叠'}
                 </button>
+                <button
+                  className="export-btn"
+                  onClick={() => {
+                    import('./utils/exportData').then(({ exportToCSV }) => {
+                      exportToCSV(screenedStocks, `波段交易筛选_${new Date().toLocaleDateString()}.csv`);
+                    });
+                  }}
+                  title="导出为CSV"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '14px',
+                    borderRadius: '4px',
+                    border: '1px solid #1890ff',
+                    background: '#fff',
+                    color: '#1890ff',
+                    cursor: 'pointer',
+                    marginLeft: '8px'
+                  }}
+                >
+                  📥 导出CSV
+                </button>
+                <button
+                  className="copy-btn"
+                  onClick={() => {
+                    import('./utils/exportData').then(({ copyStockCodes }) => {
+                      copyStockCodes(screenedStocks);
+                    });
+                  }}
+                  title="复制股票代码"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '14px',
+                    borderRadius: '4px',
+                    border: '1px solid #52c41a',
+                    background: '#fff',
+                    color: '#52c41a',
+                    cursor: 'pointer',
+                    marginLeft: '8px'
+                  }}
+                >
+                  📋 复制代码
+                </button>
                 {state !== 'idle' && (
                   <button className="reset-btn" onClick={handleReset}>
                     重新开始
