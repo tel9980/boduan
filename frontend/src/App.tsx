@@ -11,6 +11,9 @@ import FilterPanel from './components/FilterPanel';
 import type { FilterConfig } from './components/FilterPanel';
 import FinalPickCard from './components/FinalPickCard';
 import MarketEnvironmentComponent from './components/MarketEnvironment';
+import FavoritesPanel from './components/FavoritesPanel';
+import QuickFilters from './components/QuickFilters';
+import { addHistory } from './utils/localStorage';
 import './App.css';
 
 type AppState = 'idle' | 'screening' | 'screened' | 'filtering' | 'filtered';
@@ -64,6 +67,7 @@ function App() {
   const [filterProgress, setFilterProgress] = useState<string>(''); // 新增：过滤进度提示
   const [isScreenedCollapsed, setIsScreenedCollapsed] = useState<boolean>(false); // 新增：初步筛选结果是否折叠
   const [isUpdatingMargin, setIsUpdatingMargin] = useState<boolean>(false);
+  const [showFavorites, setShowFavorites] = useState<boolean>(false); // 新增：显示自选股面板
 
   // 取消请求的控制器
   const cancelTokenSource = useRef<any>(null);
@@ -118,8 +122,10 @@ function App() {
       setScreenedStocks(result.data);
       // 设置市场环境数据（如果有）
       if (result.market_environment) {
-        setMarketEnv(result.market_environment);
+        setMarketEnv(result.market_environment as any);
       }
+      // 添加到历史记录
+      addHistory(filterConfig, result.data.length, result.market_environment);
       setState('screened');
     } catch (err: any) {
       setError(err.response?.data?.detail || '筛选失败，请稍后重试');
@@ -236,10 +242,26 @@ function App() {
             <span className="logo-icon">📊</span>
             <h1>股票智能筛选器</h1>
             <button 
+                onClick={() => setShowFavorites(true)} 
+                style={{
+                    marginLeft: '15px',
+                    padding: '6px 12px',
+                    fontSize: '14px',
+                    borderRadius: '4px',
+                    border: '1px solid #faad14',
+                    background: '#fffbe6',
+                    color: '#faad14',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                }}
+            >
+                ⭐ 我的自选
+            </button>
+            <button 
                 onClick={handleUpdateMargin} 
                 disabled={isUpdatingMargin}
                 style={{
-                    marginLeft: '15px',
+                    marginLeft: '8px',
                     padding: '4px 8px',
                     fontSize: '12px',
                     borderRadius: '4px',
@@ -251,12 +273,17 @@ function App() {
                 {isUpdatingMargin ? '更新中...' : '更新数据'}
             </button>
           </div>
-          <p className="tagline">基于量价分析的A股精选系统</p>
+          <p className="tagline">基于量价分析的A股精选系统 v4.4.0</p>
         </div>
       </header>
 
       {/* 主内容区 */}
       <main className="app-main">
+        {/* 快捷筛选 */}
+        <QuickFilters onApplyPreset={(config) => {
+          setFilterConfig(prev => ({ ...prev, ...config }));
+        }} />
+
         {/* 筛选条件说明 */}
         <section className="criteria-section">
           <div className="criteria-card screen-criteria">
@@ -1263,8 +1290,19 @@ function App() {
 
       {/* 底部 */}
       <footer className="app-footer">
-        <p>数据来源：东方财富 | 仅供参考，不构成投资建议</p>
+        <p>数据来源：东方财富 | 仅供参考，不构成投资建议 | v4.4.0</p>
       </footer>
+
+      {/* 自选股面板 */}
+      {showFavorites && (
+        <FavoritesPanel 
+          onClose={() => setShowFavorites(false)}
+          onSelectStock={(code) => {
+            console.log('Selected stock:', code);
+            setShowFavorites(false);
+          }}
+        />
+      )}
     </div>
   );
 }

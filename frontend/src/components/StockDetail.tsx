@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { ScreenedStock } from '../api/stock';
+import { addFavorite, removeFavorite, isFavorite } from '../utils/localStorage';
 
 interface StockDetailProps {
   stock: ScreenedStock;
@@ -7,6 +8,28 @@ interface StockDetailProps {
 }
 
 const StockDetail: React.FC<StockDetailProps> = ({ stock, onClose }) => {
+  const [isFav, setIsFav] = useState(false);
+
+  useEffect(() => {
+    setIsFav(isFavorite(stock.code));
+  }, [stock.code]);
+
+  const handleToggleFavorite = () => {
+    if (isFav) {
+      if (removeFavorite(stock.code)) {
+        setIsFav(false);
+        alert('已从自选股中移除');
+      }
+    } else {
+      if (addFavorite({ code: stock.code, name: stock.name })) {
+        setIsFav(true);
+        alert('已添加到自选股');
+      } else {
+        alert('该股票已在自选股中');
+      }
+    }
+  };
+
   return (
     <div style={{
       position: 'fixed',
@@ -46,7 +69,7 @@ const StockDetail: React.FC<StockDetailProps> = ({ stock, onClose }) => {
           background: '#fff',
           zIndex: 1
         }}>
-          <div>
+          <div style={{ flex: 1 }}>
             <h2 style={{ margin: 0, fontSize: '24px', color: '#333' }}>
               {stock.name}
               <span style={{ fontSize: '16px', color: '#999', marginLeft: '12px' }}>
@@ -67,33 +90,59 @@ const StockDetail: React.FC<StockDetailProps> = ({ stock, onClose }) => {
               </span>
             )}
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '28px',
-              cursor: 'pointer',
-              color: '#999',
-              padding: '0',
-              width: '32px',
-              height: '32px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '4px'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#f5f5f5';
-              e.currentTarget.style.color = '#333';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'none';
-              e.currentTarget.style.color = '#999';
-            }}
-          >
-            ×
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={handleToggleFavorite}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '6px',
+                border: isFav ? '1px solid #faad14' : '1px solid #d9d9d9',
+                background: isFav ? '#fffbe6' : '#fff',
+                color: isFav ? '#faad14' : '#666',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              {isFav ? '⭐ 已自选' : '☆ 加自选'}
+            </button>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '28px',
+                cursor: 'pointer',
+                color: '#999',
+                padding: '0',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '4px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f5f5f5';
+                e.currentTarget.style.color = '#333';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'none';
+                e.currentTarget.style.color = '#999';
+              }}
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* 内容 */}
