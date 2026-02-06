@@ -3,21 +3,25 @@
 :root {
   --bg-primary: #ffffff;
   --bg-secondary: #f9fafb;
+  --bg-card: #ffffff;
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --border-color: rgba(229, 231, 235, 0.8);
   --accent-blue: #3b82f6;
   --accent-blue-light: #60a5fa;
+  --shadow: rgba(0, 0, 0, 0.1);
 }
 
 [data-theme="dark"] {
-  --bg-primary: #1a1a1a;
-  --bg-secondary: #2d2d2d;
-  --text-primary: #e5e7eb;
-  --text-secondary: #9ca3af;
-  --border-color: rgba(75, 85, 99, 0.3);
+  --bg-primary: #0f1419;
+  --bg-secondary: #1a1f2e;
+  --bg-card: #1e2433;
+  --text-primary: #f0f0f0;
+  --text-secondary: #b0b8c5;
+  --border-color: rgba(100, 116, 139, 0.3);
   --accent-blue: #60a5fa;
   --accent-blue-light: #93c5fd;
+  --shadow: rgba(0, 0, 0, 0.5);
 }
 
 .app {
@@ -543,3 +547,176 @@
 /* 建议操作颜色 */
 .action-strong { color: #52c41a; font-weight: bold; }
 .action-normal { color: #fa8c16; font-weight: bold; }
+
+
+/* ===== 深色模式增强 ===== */
+[data-theme="dark"] .criteria-card {
+  background: var(--bg-card);
+  border-color: rgba(100, 116, 139, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .criteria-card:hover {
+  border-color: rgba(96, 165, 250, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  background: rgba(30, 36, 51, 0.8);
+  border-color: rgba(100, 116, 139, 0.4);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus,
+[data-theme="dark"] textarea:focus {
+  background: rgba(30, 36, 51, 1);
+  border-color: var(--accent-blue);
+  outline: none;
+}
+
+[data-theme="dark"] button {
+  background: var(--bg-card);
+  border-color: rgba(100, 116, 139, 0.4);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] button:hover:not(:disabled) {
+  background: rgba(96, 165, 250, 0.1);
+  border-color: var(--accent-blue);
+}
+
+[data-theme="dark"] .stock-table {
+  background: var(--bg-card);
+  border-color: rgba(100, 116, 139, 0.3);
+}
+
+[data-theme="dark"] .table-header {
+  background: rgba(30, 36, 51, 0.8);
+  border-bottom-color: rgba(100, 116, 139, 0.4);
+}
+
+[data-theme="dark"] .table-row {
+  border-bottom-color: rgba(100, 116, 139, 0.2);
+}
+
+[data-theme="dark"] .table-row:hover {
+  background: rgba(96, 165, 250, 0.05);
+}
+
+[data-theme="dark"] .section-header {
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .count-badge {
+  background: rgba(96, 165, 250, 0.2);
+  color: var(--accent-blue-light);
+}
+
+[data-theme="dark"] .action-btn {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.9) 0%, rgba(59, 130, 246, 0.9) 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .action-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 1) 0%, rgba(59, 130, 246, 1) 100%);
+  box-shadow: 0 4px 12px rgba(96, 165, 250, 0.4);
+}
+
+[data-theme="dark"] .progress-tip {
+  background: rgba(30, 36, 51, 0.9);
+  border-color: rgba(96, 165, 250, 0.3);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .error-banner {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+/* 深色模式下的统计面板 */
+[data-theme="dark"] .results-section {
+  background: transparent;
+}
+
+/* 深色模式下的快捷键提示 */
+[data-theme="dark"] kbd {
+  background: rgba(30, 36, 51, 0.9);
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  color: var(--text-primary);
+}
+
+
+/* ===== 字体大小调节 ===== */
+[data-font-size="small"] {
+  font-size: 13px;
+}
+
+[data-font-size="small"] h1 {
+  font-size: 20px;
+}
+
+[data-font-size="small"] h2 {
+  font-size: 16px;
+}
+
+[data-font-size="small"] h3 {
+  font-size: 14px;
+}
+
+[data-font-size="medium"] {
+  font-size: 14px;
+}
+
+[data-font-size="large"] {
+  font-size: 16px;
+}
+
+[data-font-size="large"] h1 {
+  font-size: 26px;
+}
+
+[data-font-size="large"] h2 {
+  font-size: 20px;
+}
+
+[data-font-size="large"] h3 {
+  font-size: 18px;
+}
+
+/* ===== 表格密度调节 ===== */
+[data-table-density="compact"] .table-row {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+[data-table-density="compact"] .criteria-card {
+  padding: 12px;
+}
+
+[data-table-density="compact"] .criteria-item {
+  margin-bottom: 8px;
+}
+
+[data-table-density="standard"] .table-row {
+  padding: 10px 16px;
+  font-size: 14px;
+}
+
+[data-table-density="comfortable"] .table-row {
+  padding: 14px 20px;
+  font-size: 15px;
+}
+
+[data-table-density="comfortable"] .criteria-card {
+  padding: 20px;
+}
+
+[data-table-density="comfortable"] .criteria-item {
+  margin-bottom: 16px;
+}

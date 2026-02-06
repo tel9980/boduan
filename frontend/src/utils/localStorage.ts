@@ -254,6 +254,9 @@ export function removePreset(id: string): boolean {
 
 export interface AppSettings {
   theme: 'light' | 'dark';
+  fontSize: 'small' | 'medium' | 'large';
+  tableDensity: 'compact' | 'standard' | 'comfortable';
+  cacheExpiry: number; // 分钟
   autoRefresh: boolean;
   refreshInterval: number;
   soundEnabled: boolean;
@@ -273,6 +276,9 @@ export function getSettings(): AppSettings {
 function getDefaultSettings(): AppSettings {
   return {
     theme: 'light',
+    fontSize: 'medium',
+    tableDensity: 'standard',
+    cacheExpiry: 5,
     autoRefresh: false,
     refreshInterval: 60,
     soundEnabled: false,
@@ -309,7 +315,7 @@ export interface CachedScreenResult {
   expiresAt: string;
 }
 
-export function getCachedScreenResult(config: any): CachedScreenResult | null {
+export function getCachedScreenResult(config: any, expiryMinutes?: number): CachedScreenResult | null {
   try {
     const cacheKey = `screen_cache_${JSON.stringify(config)}`;
     const data = localStorage.getItem(cacheKey);
@@ -318,7 +324,7 @@ export function getCachedScreenResult(config: any): CachedScreenResult | null {
     
     const cached: CachedScreenResult = JSON.parse(data);
     
-    // 检查是否过期（5分钟）
+    // 检查是否过期（使用自定义过期时间或默认5分钟）
     if (new Date(cached.expiresAt) < new Date()) {
       localStorage.removeItem(cacheKey);
       return null;
@@ -331,7 +337,7 @@ export function getCachedScreenResult(config: any): CachedScreenResult | null {
   }
 }
 
-export function setCachedScreenResult(config: any, stocks: any[], marketEnv?: any): void {
+export function setCachedScreenResult(config: any, stocks: any[], marketEnv?: any, expiryMinutes: number = 5): void {
   try {
     const cacheKey = `screen_cache_${JSON.stringify(config)}`;
     
@@ -340,7 +346,7 @@ export function setCachedScreenResult(config: any, stocks: any[], marketEnv?: an
       config,
       stocks,
       marketEnv,
-      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5分钟后过期
+      expiresAt: new Date(Date.now() + expiryMinutes * 60 * 1000).toISOString() // 使用自定义过期时间
     };
     
     localStorage.setItem(cacheKey, JSON.stringify(cached));
@@ -359,6 +365,28 @@ export function clearScreenCache(): void {
     });
   } catch (error) {
     console.error('清除缓存失败:', error);
+  }
+}
+
+export function getCacheRemainingTime(config: any): string | null {
+  try {
+    const cacheKey = `screen_cache_${JSON.stringify(config)}`;
+    const data = localStorage.getItem(cacheKey);
+    
+    if (!data) return null;
+    
+    const cached: CachedScreenResult = JSON.parse(data);
+    const expiresAt = new Date(cached.expiresAt);
+    const now = new Date();
+    
+    if (expiresAt < now) return null;
+    
+    const remainingMs = expiresAt.getTime() - now.getTime();
+    const remainingMinutes = Math.ceil(remainingMs / 60000);
+    
+    return `${remainingMinutes}分钟`;
+  } catch (error) {
+    return null;
   }
 }
 

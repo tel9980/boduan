@@ -15,8 +15,8 @@ import FavoritesPanel from './components/FavoritesPanel';
 import QuickFilters from './components/QuickFilters';
 import StockComparison from './components/StockComparison';
 import { addHistory } from './utils/localStorage';
-import { getCachedScreenResult, setCachedScreenResult, clearScreenCache } from './utils/localStorage';
-import { getSettings, toggleTheme } from './utils/localStorage';
+import { getCachedScreenResult, setCachedScreenResult, clearScreenCache, getCacheRemainingTime } from './utils/localStorage';
+import { getSettings, toggleTheme, updateSettings } from './utils/localStorage';
 import './App.css';
 
 type AppState = 'idle' | 'screening' | 'screened' | 'filtering' | 'filtered';
@@ -77,6 +77,10 @@ function App() {
   const [searchKeyword, setSearchKeyword] = useState<string>(''); // 搜索关键词
   const [theme, setTheme] = useState<'light' | 'dark'>(getSettings().theme); // 主题
   const [selectedStocks, setSelectedStocks] = useState<Set<string>>(new Set()); // 批量选中的股票
+  const [fontSize, setFontSize] = useState<'small' | 'medium' | 'large'>(getSettings().fontSize); // 字体大小
+  const [tableDensity, setTableDensity] = useState<'compact' | 'standard' | 'comfortable'>(getSettings().tableDensity); // 表格密度
+  const [showSettings, setShowSettings] = useState<boolean>(false); // 显示设置面板
+  const [cacheExpiry, setCacheExpiry] = useState<number>(getSettings().cacheExpiry); // 缓存过期时间（分钟）
 
   // 取消请求的控制器
   const cancelTokenSource = useRef<any>(null);
@@ -106,7 +110,7 @@ function App() {
     setFilterProgress('正在获取全市场数据...');
 
     // 检查缓存
-    const cached = getCachedScreenResult(filterConfig);
+    const cached = getCachedScreenResult(filterConfig, cacheExpiry);
     if (cached) {
       console.log('✅ 使用缓存数据');
       setFilterProgress('');
@@ -149,7 +153,7 @@ function App() {
         setMarketEnv(result.market_environment as any);
       }
       // 保存到缓存
-      setCachedScreenResult(filterConfig, result.data, result.market_environment);
+      setCachedScreenResult(filterConfig, result.data, result.market_environment, cacheExpiry);
       // 添加到历史记录
       addHistory(filterConfig, result.data.length, result.market_environment);
       setState('screened');
@@ -369,6 +373,33 @@ function App() {
     document.documentElement.setAttribute('data-theme', newTheme);
   };
 
+  // 切换字体大小
+  const handleToggleFontSize = () => {
+    const sizes: Array<'small' | 'medium' | 'large'> = ['small', 'medium', 'large'];
+    const currentIndex = sizes.indexOf(fontSize);
+    const nextSize = sizes[(currentIndex + 1) % sizes.length];
+    setFontSize(nextSize);
+    updateSettings({ fontSize: nextSize });
+    document.documentElement.setAttribute('data-font-size', nextSize);
+  };
+
+  // 切换表格密度
+  const handleToggleTableDensity = () => {
+    const densities: Array<'compact' | 'standard' | 'comfortable'> = ['compact', 'standard', 'comfortable'];
+    const currentIndex = densities.indexOf(tableDensity);
+    const nextDensity = densities[(currentIndex + 1) % densities.length];
+    setTableDensity(nextDensity);
+    updateSettings({ tableDensity: nextDensity });
+    document.documentElement.setAttribute('data-table-density', nextDensity);
+  };
+
+  // 更改缓存过期时间
+  const handleChangeCacheExpiry = (minutes: number) => {
+    setCacheExpiry(minutes);
+    updateSettings({ cacheExpiry: minutes });
+    alert(`✅ 缓存过期时间已设置为 ${minutes} 分钟`);
+  };
+
   // 批量选择
   const handleSelectStock = (code: string) => {
     const newSelected = new Set(selectedStocks);
@@ -453,7 +484,9 @@ function App() {
   // 应用主题
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    document.documentElement.setAttribute('data-font-size', fontSize);
+    document.documentElement.setAttribute('data-table-density', tableDensity);
+  }, [theme, fontSize, tableDensity]);
 
   return (
     <div className="app">
@@ -546,6 +579,53 @@ function App() {
             >
                 {theme === 'light' ? '🌙 深色' : '☀️ 浅色'}
             </button>
+            <button 
+                onClick={handleToggleFontSize}
+                style={{
+                    marginLeft: '8px',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    borderRadius: '4px',
+                    border: '1px solid #d9d9d9',
+                    background: '#fff',
+                    cursor: 'pointer'
+                }}
+                title="切换字体大小"
+            >
+                🔤 {fontSize === 'small' ? '小' : fontSize === 'medium' ? '中' : '大'}
+            </button>
+            <button 
+                onClick={handleToggleTableDensity}
+                style={{
+                    marginLeft: '8px',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    borderRadius: '4px',
+                    border: '1px solid #d9d9d9',
+                    background: '#fff',
+                    cursor: 'pointer'
+                }}
+                title="切换表格密度"
+            >
+                📏 {tableDensity === 'compact' ? '紧凑' : tableDensity === 'standard' ? '标准' : '宽松'}
+            </button>
+            <button 
+                onClick={() => setShowSettings(!showSettings)}
+                style={{
+                    marginLeft: '8px',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    borderRadius: '4px',
+                    border: '1px solid #1890ff',
+                    background: showSettings ? '#1890ff' : '#fff',
+                    color: showSettings ? '#fff' : '#1890ff',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                }}
+                title="数据刷新设置"
+            >
+                ⚙️ 设置
+            </button>
           </div>
           <p className="tagline">基于量价分析的A股精选系统 v4.6.0 | 免费真实数据版</p>
         </div>
@@ -553,6 +633,105 @@ function App() {
 
       {/* 主内容区 */}
       <main className="app-main">
+        {/* 设置面板 */}
+        {showSettings && (
+          <div style={{
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'var(--bg-card)',
+            border: '2px solid var(--accent-blue)',
+            borderRadius: '12px',
+            padding: '24px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+            zIndex: 1000,
+            minWidth: '400px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>⚙️ 数据刷新设置</h3>
+              <button 
+                onClick={() => setShowSettings(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: 'var(--text-secondary)'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '10px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                缓存过期时间
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
+                {[1, 5, 10, 30].map(minutes => (
+                  <button
+                    key={minutes}
+                    onClick={() => handleChangeCacheExpiry(minutes)}
+                    style={{
+                      padding: '10px',
+                      border: cacheExpiry === minutes ? '2px solid #1890ff' : '1px solid var(--border-color)',
+                      borderRadius: '6px',
+                      background: cacheExpiry === minutes ? 'rgba(24, 144, 255, 0.1)' : 'var(--bg-secondary)',
+                      color: cacheExpiry === minutes ? '#1890ff' : 'var(--text-primary)',
+                      cursor: 'pointer',
+                      fontWeight: cacheExpiry === minutes ? 'bold' : 'normal',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {minutes}分钟
+                  </button>
+                ))}
+              </div>
+              <p style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                当前设置：{cacheExpiry}分钟后缓存过期
+                {getCacheRemainingTime(filterConfig) && (
+                  <span style={{ marginLeft: '10px', color: '#52c41a' }}>
+                    （剩余：{getCacheRemainingTime(filterConfig)}）
+                  </span>
+                )}
+              </p>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                onClick={() => setShowSettings(false)}
+                style={{
+                  padding: '8px 16px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  background: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer'
+                }}
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* 遮罩层 */}
+        {showSettings && (
+          <div 
+            onClick={() => setShowSettings(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 999
+            }}
+          />
+        )}
+
         {/* 快捷筛选 */}
         <QuickFilters onApplyPreset={(config) => {
           setFilterConfig(prev => ({ ...prev, ...config }));
