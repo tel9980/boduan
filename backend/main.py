@@ -868,11 +868,11 @@ async def band_trading_screen(
             with open(result_file, 'r', encoding='utf-8') as f:
                 cached = json.load(f)
             
-            # 检查缓存时间（不超过10分钟）
+            # 检查缓存时间（不超过60分钟）
             cache_time = datetime.fromisoformat(cached['timestamp'])
             age_minutes = (datetime.now() - cache_time).total_seconds() / 60
             
-            if age_minutes < 10:
+            if age_minutes < 60:
                 print(f"✅ 使用缓存数据（{age_minutes:.1f}分钟前）")
                 
                 # 返回前N只

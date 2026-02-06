@@ -104,13 +104,13 @@ def simple_screen():
 def start_scheduler():
     """启动定时任务"""
     print("🚀 启动定时筛选任务...")
-    print("⏰ 每5分钟自动筛选一次")
+    print("⏰ 每30分钟自动筛选一次")
     
     # 立即执行一次
     simple_screen()
     
-    # 每5分钟执行一次
-    schedule.every(5).minutes.do(simple_screen)
+    # 每30分钟执行一次
+    schedule.every(30).minutes.do(simple_screen)
     
     while True:
         schedule.run_pending()
