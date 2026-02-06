@@ -1,17 +1,17 @@
 """
-A股波段交易筛选系统 - 专业版 v4.4.0
+A股波段交易筛选系统 - 专业版 v4.5.0
 策略：主板+创业板融资融券标的，波段交易，严格风控
-新增：自选股管理、历史记录、快捷筛选
+新增：行业分散、K线图表、智能买卖点、对比分析
 """
 
 import os
 import re
-import subprocess
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache
 from datetime import datetime, timedelta
 import time
+import requests
 
 # 禁用代理
 os.environ['NO_PROXY'] = '*'
@@ -28,7 +28,7 @@ import pandas as pd
 app = FastAPI(
     title="A股波段交易筛选系统",
     description="专注主板+创业板融资融券标的，波段交易策略，每次最多3只",
-    version="4.4.0"
+    version="4.5.0"
 )
 
 # 配置CORS
@@ -67,7 +67,7 @@ BAND_TRADING_CONFIG = {
 
 print(f"""
 ╔══════════════════════════════════════════════════════╗
-║     A股波段交易筛选系统 v4.4.0                       ║
+║     A股波段交易筛选系统 v4.5.0                       ║
 ║                                                      ║
 ║  策略配置：                                          ║
 ║  • 板块：主板 + 创业板                               ║
@@ -76,48 +76,42 @@ print(f"""
 ║  • 涨幅范围：-2% ~ 5%（不追涨）                      ║
 ║  • 持仓限制：最多3只                                 ║
 ║  • 风控：排除ST、亏损股                              ║
-║  • 新增：自选股、历史、快捷筛选                      ║
+║  • 新增：行业分散、K线、买卖点                       ║
 ╚══════════════════════════════════════════════════════╝
 """)
 
 
 def fetch_qq_stock_data(codes: List[str], timeout: int = 20, max_retries: int = 3) -> str:
-    """使用curl调用腾讯股票API（带重试机制）"""
+    """使用requests调用腾讯股票API（带重试机制）"""
     formatted_codes = ",".join(codes)
     url = f"https://qt.gtimg.cn/q={formatted_codes}"
     
     for attempt in range(max_retries):
         try:
-            cmd = ['curl', '-s', '--connect-timeout', str(timeout), url]
-            result = subprocess.run(cmd, capture_output=True, timeout=timeout + 5)
+            response = requests.get(url, timeout=timeout)
+            response.raise_for_status()
             
-            if result.returncode == 0:
-                for enc in ['gbk', 'gb2312', 'utf-8', 'latin-1']:
-                    try:
-                        return result.stdout.decode(enc)
-                    except (UnicodeDecodeError, LookupError):
-                        continue
-                return result.stdout.decode('latin-1')
+            # 尝试不同的编码
+            for enc in ['gbk', 'gb2312', 'utf-8', 'latin-1']:
+                try:
+                    return response.content.decode(enc)
+                except (UnicodeDecodeError, LookupError):
+                    continue
             
-            # 如果不是最后一次尝试，等待后重试
-            if attempt < max_retries - 1:
-                time.sleep(0.5 * (attempt + 1))  # 递增等待时间
-                continue
+            return response.content.decode('latin-1')
             
-            raise Exception(f"请求失败: {result.stderr.decode('utf-8', errors='ignore')}")
-            
-        except subprocess.TimeoutExpired:
+        except requests.exceptions.Timeout:
             if attempt < max_retries - 1:
                 print(f"⚠️ 请求超时，正在重试 ({attempt + 1}/{max_retries})...")
                 time.sleep(0.5 * (attempt + 1))
                 continue
             raise Exception("请求超时（已重试多次）")
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             if attempt < max_retries - 1:
                 print(f"⚠️ 请求异常: {e}，正在重试 ({attempt + 1}/{max_retries})...")
                 time.sleep(0.5 * (attempt + 1))
                 continue
-            raise
+            raise Exception(f"请求失败: {str(e)}")
     
     raise Exception("请求失败（已达到最大重试次数）")
 
@@ -248,9 +242,12 @@ def get_all_stocks_data(use_cache: bool = True) -> List[Dict[str, Any]]:
 def get_margin_trading_info(code: str) -> Dict[str, Any]:
     """获取融资融券信息（智能模拟版 - 优化版）"""
     try:
+        # 移除市场前缀
+        clean_code = code.replace('sh', '').replace('sz', '')
+        
         # 使用代码的多个特征生成更稳定的模拟数据
-        code_num = int(code[-3:]) if code[-3:].isdigit() else 100
-        code_prefix = int(code[:3]) if code[:3].isdigit() else 600
+        code_num = int(clean_code[-3:]) if clean_code[-3:].isdigit() else 100
+        code_prefix = int(clean_code[:3]) if clean_code[:3].isdigit() else 600
         
         # 基于代码特征判断是否支持融资融券（约70%的股票支持）
         is_eligible = (code_num % 10 != 0) and (code_num % 10 != 9)
@@ -332,8 +329,11 @@ def get_margin_trading_info(code: str) -> Dict[str, Any]:
 def get_capital_flow(code: str) -> Dict[str, Any]:
     """获取资金流向信息（智能模拟版 - 优化版）"""
     try:
-        code_num = int(code[-3:]) if code[-3:].isdigit() else 100
-        code_prefix = int(code[:3]) if code[:3].isdigit() else 600
+        # 移除市场前缀
+        clean_code = code.replace('sh', '').replace('sz', '')
+        
+        code_num = int(clean_code[-3:]) if clean_code[-3:].isdigit() else 100
+        code_prefix = int(clean_code[:3]) if clean_code[:3].isdigit() else 600
         
         # 基于代码特征生成更合理的资金流数据
         seed = (code_num * 7 + code_prefix) % 400
@@ -375,6 +375,128 @@ def is_loss_making_stock(code: str, name: str) -> bool:
     # 这里使用简化判断：ST股票通常是亏损的
     loss_keywords = ['亏损', '预亏', '巨亏', '首亏', '续亏']
     return any(keyword in name for keyword in loss_keywords)
+
+
+def get_industry(name: str, code: str) -> str:
+    """根据股票名称和代码推测行业（简化版）"""
+    # 移除市场前缀
+    clean_code = code.replace('sh', '').replace('sz', '')
+    
+    # 基于名称关键词判断行业
+    if any(k in name for k in ['药', '医', '生物', '健康', '康']):
+        return '医药生物'
+    elif any(k in name for k in ['科技', '软件', '信息', '数据', '云', '网络', '通信']):
+        return '信息技术'
+    elif any(k in name for k in ['银行', '证券', '保险', '金融', '投资']):
+        return '金融'
+    elif any(k in name for k in ['地产', '房', '置业', '建设', '建筑']):
+        return '房地产'
+    elif any(k in name for k in ['汽车', '车', '客车']):
+        return '汽车'
+    elif any(k in name for k in ['电', '能源', '新能源', '光伏', '风电']):
+        return '电力设备'
+    elif any(k in name for k in ['化工', '化学', '材料']):
+        return '化工'
+    elif any(k in name for k in ['机械', '设备', '制造']):
+        return '机械设备'
+    elif any(k in name for k in ['食品', '饮料', '酒']):
+        return '食品饮料'
+    elif any(k in name for k in ['家电', '电器']):
+        return '家用电器'
+    else:
+        return '综合'
+
+
+def generate_kline_data(code: str, price: float, change_percent: float) -> List[Dict[str, Any]]:
+    """生成模拟K线数据（用于展示）"""
+    # 移除市场前缀
+    clean_code = code.replace('sh', '').replace('sz', '')
+    code_num = int(clean_code[-3:]) if clean_code[-3:].isdigit() else 100
+    
+    kline = []
+    base_price = price / (1 + change_percent / 100)  # 计算前一日收盘价
+    
+    # 生成最近10天的K线数据
+    for i in range(10, 0, -1):
+        # 使用代码特征生成稳定的随机波动
+        seed = (code_num * i) % 100
+        daily_change = (seed - 50) / 500  # -0.1 到 0.1 的波动
+        
+        close = base_price * (1 + daily_change * (11 - i) / 10)
+        open_price = close * (1 + (seed % 10 - 5) / 1000)
+        high = max(open_price, close) * (1 + (seed % 5) / 500)
+        low = min(open_price, close) * (1 - (seed % 5) / 500)
+        volume = 1000000 * (50 + seed)
+        
+        kline.append({
+            'date': f'Day-{i}',
+            'open': round(open_price, 2),
+            'close': round(close, 2),
+            'high': round(high, 2),
+            'low': round(low, 2),
+            'volume': int(volume)
+        })
+    
+    # 添加今天的数据
+    kline.append({
+        'date': 'Today',
+        'open': round(base_price, 2),
+        'close': round(price, 2),
+        'high': round(price * 1.02, 2),
+        'low': round(base_price * 0.98, 2),
+        'volume': int(2000000 * (code_num % 50 + 10))
+    })
+    
+    return kline
+
+
+def calculate_trade_points(stock: Dict[str, Any]) -> Dict[str, Any]:
+    """计算智能买卖点"""
+    price = stock['price']
+    change_percent = stock['change_percent']
+    volume_ratio = stock['volume_ratio']
+    
+    # 买入价：当前价或略低
+    if change_percent < 0:
+        # 回调中，可以当前价买入
+        buy_price = price
+        buy_timing = '立即买入'
+    elif change_percent < 2:
+        # 温和上涨，可以追
+        buy_price = price
+        buy_timing = '适合买入'
+    else:
+        # 涨幅较大，等回调
+        buy_price = round(price * 0.98, 2)
+        buy_timing = '等待回调'
+    
+    # 止损价：-5%
+    stop_loss = round(buy_price * 0.95, 2)
+    stop_loss_percent = -5.0
+    
+    # 目标价：根据量比和涨幅判断
+    if volume_ratio > 2.5 and change_percent < 2:
+        # 放量且涨幅不大，目标+8%
+        target_price = round(buy_price * 1.08, 2)
+        target_percent = 8.0
+    elif volume_ratio > 2.0:
+        # 适度放量，目标+6%
+        target_price = round(buy_price * 1.06, 2)
+        target_percent = 6.0
+    else:
+        # 保守目标+5%
+        target_price = round(buy_price * 1.05, 2)
+        target_percent = 5.0
+    
+    return {
+        'buy_price': buy_price,
+        'buy_timing': buy_timing,
+        'stop_loss': stop_loss,
+        'stop_loss_percent': stop_loss_percent,
+        'target_price': target_price,
+        'target_percent': target_percent,
+        'risk_reward_ratio': round(target_percent / abs(stop_loss_percent), 2)
+    }
 
 
 def analyze_market_environment(stocks: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -455,13 +577,16 @@ def analyze_market_environment(stocks: List[Dict[str, Any]]) -> Dict[str, Any]:
 
 def get_board_type(code: str) -> Dict[str, str]:
     """获取板块类型"""
-    if code.startswith('688'):
+    # 移除市场前缀（sh/sz）
+    clean_code = code.replace('sh', '').replace('sz', '')
+    
+    if clean_code.startswith('688'):
         return {'type': 'kcb', 'name': '科创板', 'color': '#00b894', 'allowed': False}
-    elif code.startswith('300') or code.startswith('301'):
+    elif clean_code.startswith('300') or clean_code.startswith('301'):
         return {'type': 'cyb', 'name': '创业板', 'color': '#6c5ce7', 'allowed': True}
-    elif code.startswith('6'):
+    elif clean_code.startswith('6'):
         return {'type': 'sh', 'name': '沪市主板', 'color': '#0984e3', 'allowed': True}
-    elif code.startswith('0') or code.startswith('00'):
+    elif clean_code.startswith('0'):
         return {'type': 'sz', 'name': '深市主板', 'color': '#00cec9', 'allowed': True}
     else:
         return {'type': 'other', 'name': '其他', 'color': '#636e72', 'allowed': False}
@@ -629,18 +754,6 @@ def calculate_band_trading_score(stock: Dict[str, Any], margin_info: Dict[str, A
     }
 
 
-def get_board_type(code: str) -> Dict[str, str]:
-    """获取板块类型"""
-    if code.startswith('688'):
-        return {'type': 'kcb', 'name': '科创板', 'color': '#00b894'}
-    elif code.startswith('300') or code.startswith('301'):
-        return {'type': 'cyb', 'name': '创业板', 'color': '#6c5ce7'}
-    elif code.startswith('6'):
-        return {'type': 'sh', 'name': '沪市主板', 'color': '#0984e3'}
-    else:
-        return {'type': 'sz', 'name': '深市主板', 'color': '#00cec9'}
-
-
 @app.get("/")
 async def root():
     return {
@@ -721,8 +834,11 @@ async def band_trading_screen(
             code = stock['code']
             name = stock['name']
             
+            # 移除市场前缀以便正确判断
+            clean_code = code.replace('sh', '').replace('sz', '')
+            
             # 1. 排除科创板
-            if code.startswith('688'):
+            if clean_code.startswith('688'):
                 excluded_stats['kcb'] += 1
                 continue
             
@@ -777,6 +893,15 @@ async def band_trading_screen(
             stock['capital_flow'] = capital_flow
             stock['board_type'] = board
             
+            # 10. 添加行业信息
+            stock['industry'] = get_industry(name, code)
+            
+            # 11. 生成K线数据
+            stock['kline'] = generate_kline_data(code, stock['price'], stock['change_percent'])
+            
+            # 12. 计算买卖点
+            stock['trade_points'] = calculate_trade_points(stock)
+            
             # 只保留评分>=55的股票（提高门槛）
             if stock['score'] >= 55:
                 filtered_stocks.append(stock)
@@ -784,8 +909,41 @@ async def band_trading_screen(
         # 按评分排序
         filtered_stocks.sort(key=lambda x: x['score'], reverse=True)
         
-        # 返回前N只
-        result = filtered_stocks[:limit]
+        # 板块+行业分散策略：尽量从不同板块和行业各选一只
+        result = []
+        board_counts = {'sh': 0, 'sz': 0, 'cyb': 0}  # 沪市、深市、创业板计数
+        used_industries = set()  # 已选行业
+        
+        # 第一轮：每个板块选一只最高分的，且行业不重复
+        for board_type in ['sh', 'sz', 'cyb']:
+            for stock in filtered_stocks:
+                if (stock['board_type']['type'] == board_type and 
+                    board_counts[board_type] == 0 and
+                    stock['industry'] not in used_industries):
+                    result.append(stock)
+                    board_counts[board_type] += 1
+                    used_industries.add(stock['industry'])
+                    if len(result) >= limit:
+                        break
+            if len(result) >= limit:
+                break
+        
+        # 第二轮：如果还没满，优先选不同行业的
+        if len(result) < limit:
+            for stock in filtered_stocks:
+                if stock not in result and stock['industry'] not in used_industries:
+                    result.append(stock)
+                    used_industries.add(stock['industry'])
+                    if len(result) >= limit:
+                        break
+        
+        # 第三轮：如果还是没满，按评分继续添加
+        if len(result) < limit:
+            for stock in filtered_stocks:
+                if stock not in result:
+                    result.append(stock)
+                    if len(result) >= limit:
+                        break
         
         print(f"\n{'='*60}")
         print(f"✅ 筛选完成")
@@ -800,13 +958,18 @@ async def band_trading_screen(
         print(f"   • 排除板块不符: {excluded_stats['board']}只")
         print(f"   • 排除条件不符: {excluded_stats['criteria']}只")
         print(f"   • 最终入选: {len(result)}只")
+        print(f"   • 板块分布: 沪市{board_counts['sh']}只 深市{board_counts['sz']}只 创业板{board_counts['cyb']}只")
+        if result:
+            industries = [s['industry'] for s in result]
+            print(f"   • 行业分布: {', '.join(industries)}")
         print(f"{'='*60}\n")
         
         if result:
             print("🎯 推荐股票:")
             for i, s in enumerate(result, 1):
                 print(f"   {i}. {s['name']}({s['code']}) - 评分:{s['score']:.1f}")
-                print(f"      板块:{s['board_type']['name']} | 涨幅:{s['change_percent']:.2f}% | 市值:{s['market_cap']:.0f}亿")
+                print(f"      板块:{s['board_type']['name']} | 行业:{s['industry']} | 涨幅:{s['change_percent']:.2f}% | 市值:{s['market_cap']:.0f}亿")
+                print(f"      买入:{s['trade_points']['buy_price']}元 止损:{s['trade_points']['stop_loss']}元 目标:{s['trade_points']['target_price']}元")
                 if s['reasons']:
                     print(f"      理由: {', '.join(s['reasons'][:3])}")
         

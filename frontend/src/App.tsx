@@ -13,6 +13,7 @@ import FinalPickCard from './components/FinalPickCard';
 import MarketEnvironmentComponent from './components/MarketEnvironment';
 import FavoritesPanel from './components/FavoritesPanel';
 import QuickFilters from './components/QuickFilters';
+import StockComparison from './components/StockComparison';
 import { addHistory } from './utils/localStorage';
 import './App.css';
 
@@ -273,7 +274,7 @@ function App() {
                 {isUpdatingMargin ? '更新中...' : '更新数据'}
             </button>
           </div>
-          <p className="tagline">基于量价分析的A股精选系统 v4.4.0</p>
+          <p className="tagline">基于量价分析的A股精选系统 v4.5.0</p>
         </div>
       </header>
 
@@ -729,6 +730,11 @@ function App() {
             </div>
             )}
           </section>
+        )}
+
+        {/* 股票对比分析 */}
+        {screenedStocks.length > 0 && screenedStocks.length <= 5 && (
+          <StockComparison stocks={screenedStocks} />
         )}
 
         {/* 精选结果 */}

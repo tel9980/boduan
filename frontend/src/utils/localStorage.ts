@@ -168,7 +168,13 @@ function getDefaultPresets(): FilterPreset[] {
         changeMax: 7,
         volumeRatioMin: 2,
         volumeRatioMax: 4,
-        marketCapMax: 160
+        marketCapMin: 50,
+        marketCapMax: 160,
+        includeKcbCyb: true,
+        requireMargin: true,
+        preferTailInflow: true,
+        strictRiskControl: true,
+        isBandTradingMode: false
       },
       createdAt: new Date().toISOString()
     },
@@ -181,7 +187,13 @@ function getDefaultPresets(): FilterPreset[] {
         changeMax: 1,
         volumeRatioMin: 1.5,
         volumeRatioMax: 2.5,
-        marketCapMax: 160
+        marketCapMin: 50,
+        marketCapMax: 160,
+        includeKcbCyb: true,
+        requireMargin: true,
+        preferTailInflow: true,
+        strictRiskControl: true,
+        isBandTradingMode: false
       },
       createdAt: new Date().toISOString()
     },
@@ -194,7 +206,13 @@ function getDefaultPresets(): FilterPreset[] {
         changeMax: 4,
         volumeRatioMin: 1.8,
         volumeRatioMax: 3,
-        marketCapMax: 160
+        marketCapMin: 50,
+        marketCapMax: 160,
+        includeKcbCyb: true,
+        requireMargin: true,
+        preferTailInflow: true,
+        strictRiskControl: true,
+        isBandTradingMode: false
       },
       createdAt: new Date().toISOString()
     }

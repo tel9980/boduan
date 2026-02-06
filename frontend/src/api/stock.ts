@@ -3,7 +3,7 @@
  */
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8001/api';
+const API_BASE = 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -35,6 +35,16 @@ export interface ScreenedStock {
   risk_level?: string;  // 新增：风险等级
   reasons?: string[];  // 新增：推荐理由
   warnings?: string[];  // 新增：风险提示
+  industry?: string;  // 新增：行业
+  trade_points?: {  // 新增：买卖点建议
+    buy_price: number;
+    buy_timing: string;
+    stop_loss: number;
+    stop_loss_percent: number;
+    target_price: number;
+    target_percent: number;
+    risk_reward_ratio: number;
+  };
   margin_info?: {  // 新增：融资融券信息
     is_margin_eligible: boolean;
     margin_balance: number;
@@ -403,7 +413,7 @@ export async function screenBandTradingStocks(params?: {
   macd_required?: boolean;
   kdj_required?: boolean;
 }): Promise<BandTradingResponse> {
-  const response = await api.get('/screen/band-trading', { params });
+  const response = await api.get('/band-trading', { params });
   return response.data;
 }
 

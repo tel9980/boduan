@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { ScreenedStock } from '../api/stock';
 import StockMiniChart from './StockMiniChart';
 import StockDetail from './StockDetail';
+import MiniKLine from './MiniKLine';
 
 interface StockCardProps {
   stock: ScreenedStock;
@@ -132,6 +133,74 @@ const StockCard: React.FC<StockCardProps> = ({ stock }) => {
               {reason}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 迷你K线图 */}
+      {stock.kline && stock.kline.length > 0 && (
+        <div style={{
+          marginBottom: '12px',
+          padding: '10px',
+          background: '#fafafa',
+          borderRadius: '6px',
+          border: '1px solid #e8e8e8'
+        }}>
+          <div style={{fontSize: '12px', color: '#999', marginBottom: '6px'}}>近期走势</div>
+          <MiniKLine data={stock.kline} width={250} height={60} />
+        </div>
+      )}
+
+      {/* 买卖点建议 */}
+      {stock.trade_points && (
+        <div style={{
+          marginBottom: '10px',
+          padding: '10px',
+          background: '#e6f7ff',
+          borderRadius: '6px',
+          border: '1px solid #91d5ff'
+        }}>
+          <div style={{fontSize: '12px', fontWeight: 'bold', color: '#0050b3', marginBottom: '8px'}}>
+            📍 交易建议
+          </div>
+          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '11px'}}>
+            <div>
+              <div style={{color: '#999', marginBottom: '2px'}}>买入价</div>
+              <div style={{fontWeight: 'bold', color: '#1890ff'}}>
+                ¥{stock.trade_points.buy_price?.toFixed(2)}
+              </div>
+              <div style={{fontSize: '10px', color: '#666', marginTop: '2px'}}>
+                {stock.trade_points.buy_timing}
+              </div>
+            </div>
+            <div>
+              <div style={{color: '#999', marginBottom: '2px'}}>止损价</div>
+              <div style={{fontWeight: 'bold', color: '#ff4d4f'}}>
+                ¥{stock.trade_points.stop_loss?.toFixed(2)}
+              </div>
+              <div style={{fontSize: '10px', color: '#666', marginTop: '2px'}}>
+                {stock.trade_points.stop_loss_percent?.toFixed(1)}%
+              </div>
+            </div>
+            <div>
+              <div style={{color: '#999', marginBottom: '2px'}}>目标价</div>
+              <div style={{fontWeight: 'bold', color: '#52c41a'}}>
+                ¥{stock.trade_points.target_price?.toFixed(2)}
+              </div>
+              <div style={{fontSize: '10px', color: '#666', marginTop: '2px'}}>
+                +{stock.trade_points.target_percent?.toFixed(1)}%
+              </div>
+            </div>
+          </div>
+          <div style={{
+            marginTop: '8px',
+            paddingTop: '8px',
+            borderTop: '1px dashed #91d5ff',
+            fontSize: '11px',
+            color: '#666',
+            textAlign: 'center'
+          }}>
+            盈亏比 1:{stock.trade_points.risk_reward_ratio?.toFixed(2)}
+          </div>
         </div>
       )}
 
