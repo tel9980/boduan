@@ -1,6 +1,7 @@
 """
-A股波段交易筛选系统 - 专业版
+A股波段交易筛选系统 - 专业版 v4.2.0
 策略：主板+创业板融资融券标的，波段交易，严格风控
+新增：缓存机制、性能优化、市场环境判断
 """
 
 import os
@@ -8,6 +9,9 @@ import re
 import subprocess
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import lru_cache
+from datetime import datetime, timedelta
+import time
 
 # 禁用代理
 os.environ['NO_PROXY'] = '*'
@@ -18,14 +22,13 @@ for key in ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']:
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import pandas as pd
-from datetime import datetime, timedelta
 
 app = FastAPI(
     title="A股波段交易筛选系统",
     description="专注主板+创业板融资融券标的，波段交易策略，每次最多3只",
-    version="4.0.0"
+    version="4.2.0"
 )
 
 # 配置CORS
@@ -36,6 +39,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ==================== 全局缓存 ====================
+_stock_data_cache = {
+    'data': None,
+    'timestamp': None,
+    'ttl': 60  # 缓存60秒
+}
+
+_market_env_cache = {
+    'data': None,
+    'timestamp': None,
+    'ttl': 300  # 缓存5分钟
+}
 
 # ==================== 波段交易策略配置 ====================
 BAND_TRADING_CONFIG = {
@@ -51,7 +67,7 @@ BAND_TRADING_CONFIG = {
 
 print(f"""
 ╔══════════════════════════════════════════════════════╗
-║     A股波段交易筛选系统 v4.0.0                       ║
+║     A股波段交易筛选系统 v4.2.0                       ║
 ║                                                      ║
 ║  策略配置：                                          ║
 ║  • 板块：主板 + 创业板                               ║
@@ -60,6 +76,7 @@ print(f"""
 ║  • 涨幅范围：-2% ~ 5%（不追涨）                      ║
 ║  • 持仓限制：最多3只                                 ║
 ║  • 风控：排除ST、亏损股                              ║
+║  • 新增：缓存机制、性能优化                          ║
 ╚══════════════════════════════════════════════════════╝
 """)
 
@@ -148,15 +165,27 @@ def generate_stock_codes() -> List[str]:
     return codes
 
 
-def get_all_stocks_data() -> List[Dict[str, Any]]:
-    """获取所有A股实时数据"""
+def get_all_stocks_data(use_cache: bool = True) -> List[Dict[str, Any]]:
+    """获取所有A股实时数据（带缓存优化）"""
+    global _stock_data_cache
+    
+    # 检查缓存
+    if use_cache and _stock_data_cache['data'] is not None:
+        cache_age = time.time() - _stock_data_cache['timestamp']
+        if cache_age < _stock_data_cache['ttl']:
+            print(f"📦 使用缓存数据（缓存时间：{cache_age:.1f}秒）")
+            return _stock_data_cache['data']
+    
+    print("🔄 获取最新股票数据...")
+    start_time = time.time()
+    
     all_codes = generate_stock_codes()
-    batch_size = 80
+    batch_size = 100  # 优化：增加批次大小
     all_stocks = []
     
     def fetch_batch(batch_codes):
         try:
-            data = fetch_qq_stock_data(batch_codes)
+            data = fetch_qq_stock_data(batch_codes, timeout=20)  # 优化：减少超时时间
             results = []
             for line in data.strip().split('\n'):
                 if line:
@@ -168,18 +197,30 @@ def get_all_stocks_data() -> List[Dict[str, Any]]:
             print(f"获取批次失败: {e}")
             return []
     
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    with ThreadPoolExecutor(max_workers=15) as executor:  # 优化：增加并发数
         futures = []
         for i in range(0, len(all_codes), batch_size):
             batch = all_codes[i:i+batch_size]
             futures.append(executor.submit(fetch_batch, batch))
         
+        completed = 0
+        total = len(futures)
         for future in as_completed(futures):
             try:
                 stocks = future.result()
                 all_stocks.extend(stocks)
+                completed += 1
+                if completed % 10 == 0:
+                    print(f"⏳ 进度：{completed}/{total} ({completed*100//total}%)")
             except Exception as e:
                 print(f"处理批次失败: {e}")
+    
+    elapsed = time.time() - start_time
+    print(f"✅ 数据获取完成：{len(all_stocks)}只股票，耗时{elapsed:.1f}秒")
+    
+    # 更新缓存
+    _stock_data_cache['data'] = all_stocks
+    _stock_data_cache['timestamp'] = time.time()
     
     return all_stocks
 
@@ -314,6 +355,82 @@ def is_loss_making_stock(code: str, name: str) -> bool:
     # 这里使用简化判断：ST股票通常是亏损的
     loss_keywords = ['亏损', '预亏', '巨亏', '首亏', '续亏']
     return any(keyword in name for keyword in loss_keywords)
+
+
+def analyze_market_environment(stocks: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """分析市场环境（新增功能）"""
+    global _market_env_cache
+    
+    # 检查缓存
+    if _market_env_cache['data'] is not None:
+        cache_age = time.time() - _market_env_cache['timestamp']
+        if cache_age < _market_env_cache['ttl']:
+            return _market_env_cache['data']
+    
+    if not stocks or len(stocks) < 100:
+        return {
+            'status': 'unknown',
+            'description': '数据不足',
+            'advice': '等待更多数据'
+        }
+    
+    # 统计市场数据
+    up_count = sum(1 for s in stocks if s.get('change_percent', 0) > 0)
+    down_count = sum(1 for s in stocks if s.get('change_percent', 0) < 0)
+    total = len(stocks)
+    up_ratio = up_count / total if total > 0 else 0
+    
+    avg_change = sum(s.get('change_percent', 0) for s in stocks) / total if total > 0 else 0
+    avg_volume_ratio = sum(s.get('volume_ratio', 1) for s in stocks) / total if total > 0 else 1
+    
+    # 判断市场环境
+    if up_ratio > 0.65 and avg_change > 1.5:
+        status = 'strong_bull'
+        description = '强势上涨行情'
+        advice = '积极参与，但注意追高风险'
+        strategy_adjust = {'change_max': 6, 'volume_ratio_max': 3.5}
+    elif up_ratio > 0.55 and avg_change > 0.5:
+        status = 'weak_bull'
+        description = '温和上涨行情'
+        advice = '适度参与，优选回调股票'
+        strategy_adjust = {'change_max': 5, 'volume_ratio_max': 3.0}
+    elif up_ratio < 0.35 and avg_change < -1.5:
+        status = 'strong_bear'
+        description = '强势下跌行情'
+        advice = '谨慎观望，空仓为主'
+        strategy_adjust = {'change_min': -1, 'change_max': 3}
+    elif up_ratio < 0.45 and avg_change < -0.5:
+        status = 'weak_bear'
+        description = '温和下跌行情'
+        advice = '轻仓试探，严格止损'
+        strategy_adjust = {'change_min': -1.5, 'change_max': 4}
+    else:
+        status = 'sideways'
+        description = '震荡整理行情'
+        advice = '波段操作，快进快出'
+        strategy_adjust = {'change_min': -2, 'change_max': 5}
+    
+    result = {
+        'status': status,
+        'description': description,
+        'advice': advice,
+        'strategy_adjust': strategy_adjust,
+        'statistics': {
+            'total_stocks': total,
+            'up_count': up_count,
+            'down_count': down_count,
+            'up_ratio': round(up_ratio * 100, 1),
+            'avg_change': round(avg_change, 2),
+            'avg_volume_ratio': round(avg_volume_ratio, 2)
+        },
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    # 更新缓存
+    _market_env_cache['data'] = result
+    _market_env_cache['timestamp'] = time.time()
+    
+    return result
 
 
 def get_board_type(code: str) -> Dict[str, str]:
@@ -557,6 +674,15 @@ async def band_trading_screen(
         all_stocks = get_all_stocks_data()
         print(f"📈 获取到 {len(all_stocks)} 只股票数据")
         
+        # 分析市场环境（新增）
+        market_env = analyze_market_environment(all_stocks)
+        print(f"\n🌍 市场环境分析:")
+        print(f"   • 状态: {market_env['description']}")
+        print(f"   • 建议: {market_env['advice']}")
+        print(f"   • 涨跌比: {market_env['statistics']['up_count']}涨/{market_env['statistics']['down_count']}跌")
+        print(f"   • 平均涨幅: {market_env['statistics']['avg_change']}%")
+        print(f"   • 平均量比: {market_env['statistics']['avg_volume_ratio']}\n")
+        
         filtered_stocks = []
         excluded_stats = {
             'kcb': 0,           # 科创板
@@ -668,6 +794,7 @@ async def band_trading_screen(
             "success": True,
             "count": len(result),
             "data": result,
+            "market_environment": market_env,  # 新增：市场环境信息
             "strategy": {
                 "name": "波段交易",
                 "max_positions": BAND_TRADING_CONFIG["max_positions"],
@@ -783,6 +910,38 @@ async def get_hot_stocks(limit: int = Query(20, description="返回数量")):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取热门股票失败: {str(e)}")
+
+
+@app.get("/api/market-environment")
+async def get_market_environment():
+    """获取市场环境分析（新增接口）"""
+    try:
+        all_stocks = get_all_stocks_data()
+        market_env = analyze_market_environment(all_stocks)
+        
+        return {
+            "success": True,
+            "data": market_env
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取市场环境失败: {str(e)}")
+
+
+@app.get("/api/cache/clear")
+async def clear_cache():
+    """清除缓存（新增接口）"""
+    global _stock_data_cache, _market_env_cache
+    
+    _stock_data_cache['data'] = None
+    _stock_data_cache['timestamp'] = None
+    
+    _market_env_cache['data'] = None
+    _market_env_cache['timestamp'] = None
+    
+    return {
+        "success": True,
+        "message": "缓存已清除"
+    }
 
 
 if __name__ == "__main__":

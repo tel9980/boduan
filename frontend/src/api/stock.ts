@@ -337,6 +337,20 @@ export interface BandTradingResponse {
     market_cap_max: string;
   };
   data: ScreenedStock[];
+  market_environment?: {
+    status: string;
+    description: string;
+    advice: string;
+    statistics: {
+      total_stocks: number;
+      up_count: number;
+      down_count: number;
+      up_ratio: number;
+      avg_change: number;
+      avg_volume_ratio: number;
+    };
+    timestamp: string;
+  };
 }
 
 // 波段交易筛选

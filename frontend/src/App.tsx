@@ -10,6 +10,7 @@ import StockCard from './components/StockCard';
 import FilterPanel from './components/FilterPanel';
 import type { FilterConfig } from './components/FilterPanel';
 import FinalPickCard from './components/FinalPickCard';
+import MarketEnvironmentComponent from './components/MarketEnvironment';
 import './App.css';
 
 type AppState = 'idle' | 'screening' | 'screened' | 'filtering' | 'filtered';
@@ -88,6 +89,7 @@ function App() {
     setError(null);
     setFilteredStocks([]);
     setAnalysisResults([]);
+    setMarketEnv(null);  // 清除旧的市场环境数据
 
     try {
       let result;
@@ -114,6 +116,10 @@ function App() {
         });
       }
       setScreenedStocks(result.data);
+      // 设置市场环境数据（如果有）
+      if (result.market_environment) {
+        setMarketEnv(result.market_environment);
+      }
       setState('screened');
     } catch (err: any) {
       setError(err.response?.data?.detail || '筛选失败，请稍后重试');
@@ -507,6 +513,11 @@ function App() {
             )}
           </div>
         </section>
+
+        {/* 市场环境分析 */}
+        {marketEnv && (
+          <MarketEnvironmentComponent data={marketEnv} />
+        )}
 
         {/* 错误提示 */}
         {error && (
