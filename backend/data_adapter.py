@@ -291,39 +291,56 @@ class AKShareAdapter:
             end_date = datetime.now().strftime('%Y%m%d')
             start_date = (datetime.now() - timedelta(days=days*2)).strftime('%Y%m%d')
             
-            # 获取日K线数据
-            df = ak.stock_zh_a_hist(
-                symbol=clean_code,
-                period="daily",
-                start_date=start_date,
-                end_date=end_date,
-                adjust="qfq"  # 前复权
-            )
+            # 添加重试机制（最多3次）
+            max_retries = 3
+            retry_delay = 0.5  # 500ms延迟
             
-            if df.empty:
-                return []
-            
-            # 取最近N天
-            df = df.tail(days)
-            
-            # 转换为列表
-            kline = []
-            for _, row in df.iterrows():
-                kline.append({
-                    'date': row['日期'].strftime('%Y-%m-%d') if hasattr(row['日期'], 'strftime') else str(row['日期']),
-                    'open': round(float(row['开盘']), 2),
-                    'close': round(float(row['收盘']), 2),
-                    'high': round(float(row['最高']), 2),
-                    'low': round(float(row['最低']), 2),
-                    'volume': int(row['成交量'])
-                })
-            
-            self._set_cache(cache_key, kline)
-            return kline
+            for attempt in range(max_retries):
+                try:
+                    # 添加请求延迟，避免频率过高
+                    if attempt > 0:
+                        time.sleep(retry_delay * attempt)  # 递增延迟
+                    
+                    # 获取日K线数据
+                    df = ak.stock_zh_a_hist(
+                        symbol=clean_code,
+                        period="daily",
+                        start_date=start_date,
+                        end_date=end_date,
+                        adjust="qfq"  # 前复权
+                    )
+                    
+                    if df.empty:
+                        return []
+                    
+                    # 取最近N天
+                    df = df.tail(days)
+                    
+                    # 转换为列表
+                    kline = []
+                    for _, row in df.iterrows():
+                        kline.append({
+                            'date': row['日期'].strftime('%Y-%m-%d') if hasattr(row['日期'], 'strftime') else str(row['日期']),
+                            'open': round(float(row['开盘']), 2),
+                            'close': round(float(row['收盘']), 2),
+                            'high': round(float(row['最高']), 2),
+                            'low': round(float(row['最低']), 2),
+                            'volume': int(row['成交量'])
+                        })
+                    
+                    self._set_cache(cache_key, kline)
+                    return kline
+                    
+                except Exception as retry_error:
+                    if attempt == max_retries - 1:
+                        # 最后一次重试失败，抛出异常
+                        raise retry_error
+                    # 继续重试
+                    continue
             
         except Exception as e:
-            print(f"⚠️ 获取K线数据失败 {stock_code}: {e}")
-            # 返回空列表，让系统使用模拟数据
+            # 静默失败，返回空列表让系统使用模拟数据
+            # print(f"⚠️ 获取K线数据失败 {stock_code}: {e}")
             return []
 
 
