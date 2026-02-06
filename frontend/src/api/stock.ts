@@ -7,7 +7,7 @@ const API_BASE = 'http://localhost:8000/api';
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 180000, // 增加到180秒，处理复杂分析
+  timeout: 300000, // 增加到300秒（5分钟），处理复杂分析
 });
 
 // 创建可取消的请求控制器

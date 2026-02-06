@@ -882,15 +882,15 @@ async def band_trading_screen(
         print(f"   • 平均涨幅: {market_env['statistics']['avg_change']}%")
         print(f"   • 平均量比: {market_env['statistics']['avg_volume_ratio']}\n")
         
-        filtered_stocks = []
+        # ===== 第一阶段：快速过滤（不调用任何慢函数） =====
+        print(f"🔍 第一阶段：快速过滤...")
+        quick_filtered = []
         excluded_stats = {
-            'kcb': 0,           # 科创板
-            'st': 0,            # ST股票
-            'loss': 0,          # 亏损股
-            'no_margin': 0,     # 非融资融券
-            'market_cap': 0,    # 市值超限
-            'board': 0,         # 板块不符
-            'criteria': 0       # 其他条件
+            'kcb': 0,
+            'st': 0,
+            'board': 0,
+            'market_cap': 0,
+            'criteria': 0
         }
         
         for stock in all_stocks:
@@ -899,8 +899,6 @@ async def band_trading_screen(
             
             code = stock['code']
             name = stock['name']
-            
-            # 移除市场前缀以便正确判断
             clean_code = code.replace('sh', '').replace('sz', '')
             
             # 1. 排除科创板
@@ -908,47 +906,61 @@ async def band_trading_screen(
                 excluded_stats['kcb'] += 1
                 continue
             
-            # 2. 只保留主板和创业板
-            board = get_board_type(code)
-            if not board.get('allowed', False):
-                excluded_stats['board'] += 1
-                continue
-            
-            # 3. 排除ST股票
+            # 2. 排除ST股票
             if 'ST' in name or '*ST' in name or name.startswith('S') or '退' in name:
                 excluded_stats['st'] += 1
                 continue
             
-            # 4. 排除亏损股票
-            if is_loss_making_stock(code, name):
-                excluded_stats['loss'] += 1
+            # 3. 只保留主板和创业板（简单判断，不调用函数）
+            if not (clean_code.startswith('6') or clean_code.startswith('0') or clean_code.startswith('3')):
+                excluded_stats['board'] += 1
                 continue
             
-            # 5. 必须支持融资融券
-            margin_info = get_margin_trading_info(code)
-            if not margin_info['is_margin_eligible']:
-                excluded_stats['no_margin'] += 1
-                continue
-            
-            # 6. 市值限制
-            market_cap = stock['market_cap']
-            if market_cap > market_cap_max:
+            # 4. 市值限制
+            if stock['market_cap'] > market_cap_max:
                 excluded_stats['market_cap'] += 1
                 continue
             
-            # 7. 基本筛选条件
-            change_percent = stock['change_percent']
-            volume_ratio = stock['volume_ratio']
-            
-            if not (change_min <= change_percent <= change_max and
-                    volume_ratio_min <= volume_ratio <= volume_ratio_max):
+            # 5. 基本筛选条件
+            if not (change_min <= stock['change_percent'] <= change_max and
+                    volume_ratio_min <= stock['volume_ratio'] <= volume_ratio_max):
                 excluded_stats['criteria'] += 1
                 continue
             
-            # 8. 获取资金流向
+            quick_filtered.append(stock)
+        
+        print(f"   快速过滤完成：{len(all_stocks)} → {len(quick_filtered)} 只")
+        
+        # ===== 第二阶段：详细分析（只对快速过滤后的股票） =====
+        print(f"🔍 第二阶段：详细分析...")
+        filtered_stocks = []
+        detailed_stats = {
+            'loss': 0,
+            'no_margin': 0
+        }
+        
+        for i, stock in enumerate(quick_filtered):
+            if i % 50 == 0 and i > 0:
+                print(f"   已分析: {i}/{len(quick_filtered)} 只...")
+            
+            code = stock['code']
+            name = stock['name']
+            
+            # 1. 检查板块类型（详细）
+            board = get_board_type(code)
+            if not board.get('allowed', False):
+                continue
+            
+            # 2. 检查融资融券
+            margin_info = get_margin_trading_info(code)
+            if not margin_info['is_margin_eligible']:
+                detailed_stats['no_margin'] += 1
+                continue
+            
+            # 3. 获取资金流向
             capital_flow = get_capital_flow(code)
             
-            # 9. 计算波段交易评分
+            # 4. 计算波段交易评分
             scoring_result = calculate_band_trading_score(stock, margin_info, capital_flow)
             
             stock['score'] = scoring_result['score']
@@ -959,18 +971,20 @@ async def band_trading_screen(
             stock['capital_flow'] = capital_flow
             stock['board_type'] = board
             
-            # 10. 添加行业信息
+            # 5. 添加行业信息
             stock['industry'] = get_industry(name, code)
             
-            # 11. 生成K线数据
+            # 6. 生成K线数据
             stock['kline'] = generate_kline_data(code, stock['price'], stock['change_percent'])
             
-            # 12. 计算买卖点
+            # 7. 计算买卖点
             stock['trade_points'] = calculate_trade_points(stock)
             
-            # 只保留评分>=55的股票（提高门槛）
+            # 只保留评分>=55的股票
             if stock['score'] >= 55:
                 filtered_stocks.append(stock)
+        
+        print(f"   详细分析完成：{len(quick_filtered)} → {len(filtered_stocks)} 只")
         
         # 按评分排序
         filtered_stocks.sort(key=lambda x: x['score'], reverse=True)
@@ -1016,13 +1030,12 @@ async def band_trading_screen(
         print(f"{'='*60}")
         print(f"📊 统计信息:")
         print(f"   • 总扫描: {len(all_stocks)}只")
+        print(f"   • 快速过滤后: {len(quick_filtered)}只")
         print(f"   • 排除科创板: {excluded_stats['kcb']}只")
         print(f"   • 排除ST股: {excluded_stats['st']}只")
-        print(f"   • 排除亏损股: {excluded_stats['loss']}只")
-        print(f"   • 排除非融资融券: {excluded_stats['no_margin']}只")
         print(f"   • 排除市值超限: {excluded_stats['market_cap']}只")
-        print(f"   • 排除板块不符: {excluded_stats['board']}只")
         print(f"   • 排除条件不符: {excluded_stats['criteria']}只")
+        print(f"   • 排除非融资融券: {detailed_stats['no_margin']}只")
         print(f"   • 最终入选: {len(result)}只")
         print(f"   • 板块分布: 沪市{board_counts['sh']}只 深市{board_counts['sz']}只 创业板{board_counts['cyb']}只")
         if result:
