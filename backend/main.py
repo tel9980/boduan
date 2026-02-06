@@ -185,12 +185,14 @@ def get_all_stocks_data() -> List[Dict[str, Any]]:
 
 
 def get_margin_trading_info(code: str) -> Dict[str, Any]:
-    """获取融资融券信息（智能模拟版）"""
+    """获取融资融券信息（智能模拟版 - 优化版）"""
     try:
+        # 使用代码的多个特征生成更稳定的模拟数据
         code_num = int(code[-3:]) if code[-3:].isdigit() else 100
+        code_prefix = int(code[:3]) if code[:3].isdigit() else 600
         
-        # 基于代码生成相对稳定的模拟数据
-        is_eligible = code_num % 3 != 0  # 约2/3的股票支持融资融券
+        # 基于代码特征判断是否支持融资融券（约70%的股票支持）
+        is_eligible = (code_num % 10 != 0) and (code_num % 10 != 9)
         
         if not is_eligible:
             return {
@@ -203,30 +205,43 @@ def get_margin_trading_info(code: str) -> Dict[str, Any]:
                 'has_data': False
             }
         
-        # 生成合理的融资融券数据
-        margin_balance = round((code_num % 50 + 10) / 10, 2)  # 1-6亿
-        short_balance = round((code_num % 100 + 5), 1)  # 5-105万股
-        margin_ratio = round((code_num % 20 + 5), 1)  # 5-25%
-        net_flow = round((code_num % 200 - 100) / 1000, 3)  # -0.1到0.1亿
+        # 生成更合理的融资融券数据（基于代码特征）
+        seed = code_num + code_prefix
+        margin_balance = round((seed % 60 + 8) / 10, 2)  # 0.8-6.8亿
+        short_balance = round((seed % 120 + 3), 1)  # 3-123万股
+        margin_ratio = round((seed % 25 + 3), 1)  # 3-28%
+        net_flow = round((seed % 240 - 120) / 1200, 3)  # -0.1到0.1亿
         
-        # 计算评分
-        margin_score = 50
-        if margin_balance >= 3:
-            margin_score += 20
-        elif margin_balance >= 1.5:
-            margin_score += 10
+        # 优化评分算法
+        margin_score = 55  # 基础分提高
         
-        if net_flow > 0.05:
+        # 融资余额评分（权重30%）
+        if margin_balance >= 4:
+            margin_score += 25
+        elif margin_balance >= 2:
             margin_score += 15
-        elif net_flow > 0:
-            margin_score += 5
-        elif net_flow < -0.05:
-            margin_score -= 15
+        elif margin_balance >= 1:
+            margin_score += 8
         
-        if margin_ratio >= 15:
+        # 净流入评分（权重40%）
+        if net_flow > 0.06:
+            margin_score += 20
+        elif net_flow > 0.02:
             margin_score += 10
-        elif margin_ratio >= 10:
-            margin_score += 5
+        elif net_flow > 0:
+            margin_score += 3
+        elif net_flow < -0.06:
+            margin_score -= 20
+        elif net_flow < -0.02:
+            margin_score -= 10
+        
+        # 融资占比评分（权重30%）
+        if margin_ratio >= 18:
+            margin_score += 15
+        elif margin_ratio >= 12:
+            margin_score += 8
+        elif margin_ratio >= 8:
+            margin_score += 3
         
         margin_score = max(0, min(100, margin_score))
         
@@ -254,22 +269,24 @@ def get_margin_trading_info(code: str) -> Dict[str, Any]:
 
 
 def get_capital_flow(code: str) -> Dict[str, Any]:
-    """获取资金流向信息（智能模拟版）"""
+    """获取资金流向信息（智能模拟版 - 优化版）"""
     try:
         code_num = int(code[-3:]) if code[-3:].isdigit() else 100
+        code_prefix = int(code[:3]) if code[:3].isdigit() else 600
         
-        # 基于代码生成相对合理的资金流数据
-        main_inflow = round((code_num % 300 - 150) / 100, 2)  # -1.5到1.5亿
-        is_inflow = main_inflow > 0.1
+        # 基于代码特征生成更合理的资金流数据
+        seed = (code_num * 7 + code_prefix) % 400
+        main_inflow = round((seed - 200) / 120, 2)  # -1.67到1.67亿
+        is_inflow = main_inflow > 0.15  # 提高阈值，更严格
         
-        # 确定流向强度
-        if main_inflow > 0.8:
+        # 优化流向强度判断
+        if main_inflow > 1.0:
             flow_strength = 'strong_in'
-        elif main_inflow > 0.3:
+        elif main_inflow > 0.4:
             flow_strength = 'weak_in'
-        elif main_inflow < -0.8:
+        elif main_inflow < -1.0:
             flow_strength = 'strong_out'
-        elif main_inflow < -0.3:
+        elif main_inflow < -0.4:
             flow_strength = 'weak_out'
         else:
             flow_strength = 'neutral'
@@ -314,7 +331,7 @@ def get_board_type(code: str) -> Dict[str, str]:
 
 
 def calculate_band_trading_score(stock: Dict[str, Any], margin_info: Dict[str, Any], capital_flow: Dict[str, Any]) -> Dict[str, Any]:
-    """计算波段交易评分（专业版）"""
+    """计算波段交易评分（专业版 - 优化版）"""
     score = 50  # 基础分
     reasons = []
     warnings = []
@@ -326,96 +343,152 @@ def calculate_band_trading_score(stock: Dict[str, Any], margin_info: Dict[str, A
     market_cap = stock['market_cap']
     turnover = stock.get('turnover', 0)
     
-    # 1. 融资融券评分（权重最高）
+    # 1. 融资融券评分（权重最高 - 45%）
     if margin_info['is_margin_eligible']:
         margin_score = margin_info['margin_score']
-        score += margin_score * 0.4  # 40%权重
+        score += margin_score * 0.45  # 提高到45%权重
         
-        if margin_score >= 70:
-            reasons.append(f"💎 融资融券强势(评分{margin_score})")
+        if margin_score >= 75:
+            reasons.append(f"💎💎 融资融券优质(评分{margin_score})")
+        elif margin_score >= 65:
+            reasons.append(f"💎 融资融券良好(评分{margin_score})")
         
-        if margin_info['net_flow'] > 0.05:
-            score += 15
+        if margin_info['net_flow'] > 0.06:
+            score += 18
+            reasons.append(f"💰💰 融资大幅流入{margin_info['net_flow']}亿")
+        elif margin_info['net_flow'] > 0.02:
+            score += 10
             reasons.append(f"💰 融资净流入{margin_info['net_flow']}亿")
-        elif margin_info['net_flow'] < -0.05:
-            score -= 10
+        elif margin_info['net_flow'] < -0.06:
+            score -= 15
+            warnings.append(f"⚠️⚠️ 融资大幅流出{abs(margin_info['net_flow']):.2f}亿")
+        elif margin_info['net_flow'] < -0.02:
+            score -= 8
             warnings.append(f"⚠️ 融资净流出{abs(margin_info['net_flow']):.2f}亿")
     else:
-        score -= 30  # 不支持融资融券大幅减分
-        warnings.append("❌ 不支持融资融券")
+        score -= 35  # 不支持融资融券严重减分
+        warnings.append("❌ 不支持融资融券（不符合策略）")
     
-    # 2. 涨跌幅评分（波段交易偏好）
-    if -2 <= change_percent <= 0:
+    # 2. 涨跌幅评分（波段交易偏好 - 25%权重）
+    if -2 <= change_percent <= -0.5:
+        score += 25
+        reasons.append(f"📉📉 深度回调({change_percent:.1f}%)，黄金买点")
+    elif -0.5 < change_percent <= 0:
         score += 20
-        reasons.append(f"📉 回调到位({change_percent:.1f}%)，波段买点")
-    elif 0 < change_percent <= 3:
-        score += 15
+        reasons.append(f"📉 小幅回调({change_percent:.1f}%)，优质买点")
+    elif 0 < change_percent <= 2:
+        score += 18
         reasons.append(f"📈 温和上涨({change_percent:.1f}%)，趋势良好")
-    elif 3 < change_percent <= 5:
-        score += 5
-        reasons.append(f"⚡ 涨幅适中({change_percent:.1f}%)")
-    elif change_percent > 7:
-        score -= 20
-        warnings.append(f"⚠️ 涨幅过大({change_percent:.1f}%)，追高风险")
-    elif change_percent < -5:
-        score -= 15
-        warnings.append(f"⚠️ 跌幅较大({change_percent:.1f}%)，需观察")
-    
-    # 3. 量比评分
-    if 1.5 <= volume_ratio <= 2.5:
-        score += 15
-        reasons.append(f"📊 量比健康({volume_ratio:.1f})")
-    elif 2.5 < volume_ratio <= 3.5:
-        score += 8
-    elif volume_ratio > 5:
-        score -= 10
-        warnings.append(f"⚠️ 量比过大({volume_ratio:.1f})，异常放量")
-    
-    # 4. 市值评分（偏好中小市值）
-    if 50 <= market_cap <= 100:
-        score += 15
-        reasons.append(f"💎 市值适中({market_cap:.0f}亿)，成长空间大")
-    elif 100 < market_cap <= 160:
+    elif 2 < change_percent <= 4:
         score += 10
+        reasons.append(f"⚡ 适度上涨({change_percent:.1f}%)")
+    elif 4 < change_percent <= 5:
+        score += 3
+        reasons.append(f"⚡ 涨幅偏高({change_percent:.1f}%)")
+    elif change_percent > 7:
+        score -= 25
+        warnings.append(f"⚠️⚠️ 涨幅过大({change_percent:.1f}%)，追高风险极大")
+    elif change_percent > 5:
+        score -= 15
+        warnings.append(f"⚠️ 涨幅较大({change_percent:.1f}%)，追高风险")
+    elif change_percent < -5:
+        score -= 20
+        warnings.append(f"⚠️⚠️ 跌幅过大({change_percent:.1f}%)，需谨慎")
+    elif change_percent < -2:
+        score -= 10
+        warnings.append(f"⚠️ 跌幅较大({change_percent:.1f}%)，观察为主")
+    
+    # 3. 量比评分（15%权重）
+    if 1.5 <= volume_ratio <= 2.2:
+        score += 18
+        reasons.append(f"📊📊 量比完美({volume_ratio:.1f})")
+    elif 2.2 < volume_ratio <= 2.8:
+        score += 12
+        reasons.append(f"� 量比健康({volume_ratio:.1f})")
+    elif 2.8 < volume_ratio <= 3.5:
+        score += 6
+        reasons.append(f"� 量比适中({volume_ratio:.1f})")
+    elif volume_ratio > 5:
+        score -= 15
+        warnings.append(f"⚠️⚠️ 量比过大({volume_ratio:.1f})，异常放量")
+    elif volume_ratio > 3.5:
+        score -= 8
+        warnings.append(f"⚠️ 量比偏大({volume_ratio:.1f})")
+    
+    # 4. 市值评分（偏好中小市值 - 10%权重）
+    if 40 <= market_cap <= 80:
+        score += 18
+        reasons.append(f"�💎 市值优质({market_cap:.0f}亿)，成长空间大")
+    elif 80 < market_cap <= 120:
+        score += 12
+        reasons.append(f"💎 市值良好({market_cap:.0f}亿)")
+    elif 120 < market_cap <= 160:
+        score += 6
         reasons.append(f"📊 市值合理({market_cap:.0f}亿)")
     elif market_cap > 160:
-        score -= 20
-        warnings.append(f"⚠️ 市值过大({market_cap:.0f}亿)，超出限制")
+        score -= 25
+        warnings.append(f"❌ 市值过大({market_cap:.0f}亿)，超出限制")
+    elif market_cap < 30:
+        score -= 10
+        warnings.append(f"⚠️ 市值偏小({market_cap:.0f}亿)，风险较高")
     
-    # 5. 资金流向评分
+    # 5. 资金流向评分（10%权重）
     if capital_flow['has_data']:
         if capital_flow['flow_strength'] == 'strong_in':
-            score += 20
-            reasons.append("💰💰 主力强力流入")
+            score += 22
+            reasons.append("💰💰💰 主力强力抢筹")
         elif capital_flow['flow_strength'] == 'weak_in':
-            score += 10
+            score += 12
             reasons.append("💰 主力温和流入")
         elif capital_flow['flow_strength'] == 'strong_out':
-            score -= 20
-            warnings.append("⚠️⚠️ 主力强力流出")
+            score -= 25
+            warnings.append("⚠️⚠️⚠️ 主力强力出逃")
         elif capital_flow['flow_strength'] == 'weak_out':
-            score -= 10
+            score -= 12
             warnings.append("⚠️ 主力温和流出")
     
-    # 6. 换手率评分（波段交易偏好适中换手）
-    if 3 <= turnover <= 8:
-        score += 10
+    # 6. 换手率评分（波段交易偏好适中换手 - 5%权重）
+    if 2 <= turnover <= 6:
+        score += 12
+        reasons.append(f"🔄 换手完美({turnover:.1f}%)")
+    elif 6 < turnover <= 10:
+        score += 6
         reasons.append(f"🔄 换手适中({turnover:.1f}%)")
-    elif turnover > 15:
-        score -= 15
-        warnings.append(f"⚠️ 换手过高({turnover:.1f}%)，可能出货")
+    elif turnover > 18:
+        score -= 18
+        warnings.append(f"⚠️⚠️ 换手过高({turnover:.1f}%)，可能出货")
+    elif turnover > 12:
+        score -= 10
+        warnings.append(f"⚠️ 换手偏高({turnover:.1f}%)")
+    elif turnover < 1:
+        score -= 8
+        warnings.append(f"⚠️ 换手过低({turnover:.1f}%)，流动性差")
     
     # 7. 板块加分
     board = get_board_type(code)
     if board['type'] == 'cyb':
-        score += 5
+        score += 8
         reasons.append("🚀 创业板成长股")
+    elif board['type'] == 'sh':
+        score += 3
+        reasons.append("🏛️ 沪市主板")
+    
+    # 确保评分在合理范围内
+    score = max(0, min(100, score))
+    
+    # 风险等级判断（更严格）
+    if score >= 70:
+        risk_level = 'low'
+    elif score >= 55:
+        risk_level = 'medium'
+    else:
+        risk_level = 'high'
     
     return {
         'score': round(score, 1),
         'reasons': reasons,
         'warnings': warnings,
-        'risk_level': 'high' if score < 40 else ('medium' if score < 60 else 'low')
+        'risk_level': risk_level
     }
 
 
@@ -558,8 +631,8 @@ async def band_trading_screen(
             stock['capital_flow'] = capital_flow
             stock['board_type'] = board
             
-            # 只保留评分>=50的股票
-            if stock['score'] >= 50:
+            # 只保留评分>=55的股票（提高门槛）
+            if stock['score'] >= 55:
                 filtered_stocks.append(stock)
         
         # 按评分排序
