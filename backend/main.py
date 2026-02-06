@@ -1,7 +1,8 @@
 """
-A股波段交易筛选系统 - 专业版 v4.5.0
+A股波段交易筛选系统 - 专业版 v4.6.0
 策略：主板+创业板融资融券标的，波段交易，严格风控
 新增：行业分散、K线图表、智能买卖点、对比分析
+优化：接入AKShare真实数据（免费）
 """
 
 import os
@@ -12,6 +13,15 @@ from functools import lru_cache
 from datetime import datetime, timedelta
 import time
 import requests
+
+# 导入AKShare数据适配器
+try:
+    from data_adapter import akshare_adapter
+    USE_REAL_DATA = True
+    print("✅ AKShare数据适配器加载成功，将使用真实数据")
+except ImportError as e:
+    USE_REAL_DATA = False
+    print(f"⚠️ AKShare数据适配器加载失败，将使用模拟数据: {e}")
 
 # 禁用代理
 os.environ['NO_PROXY'] = '*'
@@ -67,7 +77,7 @@ BAND_TRADING_CONFIG = {
 
 print(f"""
 ╔══════════════════════════════════════════════════════╗
-║     A股波段交易筛选系统 v4.5.0                       ║
+║     A股波段交易筛选系统 v4.6.0                       ║
 ║                                                      ║
 ║  策略配置：                                          ║
 ║  • 板块：主板 + 创业板                               ║
@@ -77,6 +87,7 @@ print(f"""
 ║  • 持仓限制：最多3只                                 ║
 ║  • 风控：排除ST、亏损股                              ║
 ║  • 新增：行业分散、K线、买卖点                       ║
+║  • 数据源：{'✅ AKShare真实数据' if USE_REAL_DATA else '⚠️ 模拟数据'}                    ║
 ╚══════════════════════════════════════════════════════╝
 """)
 
@@ -180,7 +191,7 @@ def generate_stock_codes() -> List[str]:
 
 
 def get_all_stocks_data(use_cache: bool = True) -> List[Dict[str, Any]]:
-    """获取所有A股实时数据（带缓存优化）"""
+    """获取所有A股实时数据（优化版：支持真实数据）"""
     global _stock_data_cache
     
     # 检查缓存
@@ -193,13 +204,35 @@ def get_all_stocks_data(use_cache: bool = True) -> List[Dict[str, Any]]:
     print("🔄 获取最新股票数据...")
     start_time = time.time()
     
+    # 如果启用了真实数据，使用AKShare
+    if USE_REAL_DATA:
+        try:
+            print("📡 使用AKShare获取真实数据...")
+            df = akshare_adapter.get_realtime_quotes()
+            
+            if not df.empty:
+                all_stocks = df.to_dict('records')
+                elapsed = time.time() - start_time
+                print(f"✅ 数据获取完成：{len(all_stocks)}只股票，耗时{elapsed:.1f}秒（真实数据）")
+                
+                # 更新缓存
+                _stock_data_cache['data'] = all_stocks
+                _stock_data_cache['timestamp'] = time.time()
+                
+                return all_stocks
+            else:
+                print("⚠️ AKShare返回空数据，切换到腾讯API...")
+        except Exception as e:
+            print(f"⚠️ AKShare获取数据失败: {e}，切换到腾讯API...")
+    
+    # 降级方案：使用腾讯API
     all_codes = generate_stock_codes()
-    batch_size = 100  # 优化：增加批次大小
+    batch_size = 100
     all_stocks = []
     
     def fetch_batch(batch_codes):
         try:
-            data = fetch_qq_stock_data(batch_codes, timeout=20)  # 优化：减少超时时间
+            data = fetch_qq_stock_data(batch_codes, timeout=20)
             results = []
             for line in data.strip().split('\n'):
                 if line:
@@ -211,7 +244,7 @@ def get_all_stocks_data(use_cache: bool = True) -> List[Dict[str, Any]]:
             print(f"获取批次失败: {e}")
             return []
     
-    with ThreadPoolExecutor(max_workers=15) as executor:  # 优化：增加并发数
+    with ThreadPoolExecutor(max_workers=15) as executor:
         futures = []
         for i in range(0, len(all_codes), batch_size):
             batch = all_codes[i:i+batch_size]
@@ -230,7 +263,7 @@ def get_all_stocks_data(use_cache: bool = True) -> List[Dict[str, Any]]:
                 print(f"处理批次失败: {e}")
     
     elapsed = time.time() - start_time
-    print(f"✅ 数据获取完成：{len(all_stocks)}只股票，耗时{elapsed:.1f}秒")
+    print(f"✅ 数据获取完成：{len(all_stocks)}只股票，耗时{elapsed:.1f}秒（腾讯API）")
     
     # 更新缓存
     _stock_data_cache['data'] = all_stocks
@@ -240,7 +273,18 @@ def get_all_stocks_data(use_cache: bool = True) -> List[Dict[str, Any]]:
 
 
 def get_margin_trading_info(code: str) -> Dict[str, Any]:
-    """获取融资融券信息（智能模拟版 - 优化版）"""
+    """获取融资融券信息（优化版：优先使用真实数据）"""
+    
+    # 如果启用了真实数据，尝试使用AKShare
+    if USE_REAL_DATA:
+        try:
+            result = akshare_adapter.get_margin_trading(code)
+            if result.get('has_data', False):
+                return result
+        except Exception as e:
+            print(f"⚠️ AKShare获取融资融券失败 {code}: {e}")
+    
+    # 降级方案：使用智能模拟数据
     try:
         # 移除市场前缀
         clean_code = code.replace('sh', '').replace('sz', '')
@@ -310,7 +354,7 @@ def get_margin_trading_info(code: str) -> Dict[str, Any]:
             'margin_ratio': margin_ratio,
             'net_flow': net_flow,
             'margin_score': margin_score,
-            'has_data': True
+            'has_data': False  # 标记为模拟数据
         }
         
     except Exception as e:
@@ -327,7 +371,18 @@ def get_margin_trading_info(code: str) -> Dict[str, Any]:
 
 
 def get_capital_flow(code: str) -> Dict[str, Any]:
-    """获取资金流向信息（智能模拟版 - 优化版）"""
+    """获取资金流向信息（优化版：优先使用真实数据）"""
+    
+    # 如果启用了真实数据，尝试使用AKShare
+    if USE_REAL_DATA:
+        try:
+            result = akshare_adapter.get_capital_flow(code)
+            if result.get('has_data', False):
+                return result
+        except Exception as e:
+            print(f"⚠️ AKShare获取资金流向失败 {code}: {e}")
+    
+    # 降级方案：使用智能模拟数据
     try:
         # 移除市场前缀
         clean_code = code.replace('sh', '').replace('sz', '')
@@ -356,7 +411,7 @@ def get_capital_flow(code: str) -> Dict[str, Any]:
             'main_inflow': main_inflow,
             'is_inflow': is_inflow,
             'flow_strength': flow_strength,
-            'has_data': True,
+            'has_data': False,  # 标记为模拟数据
         }
         
     except Exception as e:
@@ -408,7 +463,18 @@ def get_industry(name: str, code: str) -> str:
 
 
 def generate_kline_data(code: str, price: float, change_percent: float) -> List[Dict[str, Any]]:
-    """生成模拟K线数据（用于展示）"""
+    """生成K线数据（优化版：优先使用真实数据）"""
+    
+    # 如果启用了真实数据，尝试使用AKShare
+    if USE_REAL_DATA:
+        try:
+            kline = akshare_adapter.get_kline_data(code, period='daily', days=10)
+            if kline:
+                return kline
+        except Exception as e:
+            print(f"⚠️ AKShare获取K线失败 {code}: {e}")
+    
+    # 降级方案：使用模拟数据
     # 移除市场前缀
     clean_code = code.replace('sh', '').replace('sz', '')
     code_num = int(clean_code[-3:]) if clean_code[-3:].isdigit() else 100

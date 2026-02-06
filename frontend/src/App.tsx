@@ -2,7 +2,7 @@
  * 股票筛选器
  * 实现股票筛选和精选过滤功能
  */
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { screenStocks, screenBandTradingStocks, filterStocks, createCancelToken, updateMarginStocks } from './api/stock';
 import type { ScreenedStock, FilteredStock, AnalysisResult, AISelectedStock, MarketEnvironment, FinalPick } from './api/stock';
 import AIRadar from './components/AIRadar';
@@ -15,6 +15,8 @@ import FavoritesPanel from './components/FavoritesPanel';
 import QuickFilters from './components/QuickFilters';
 import StockComparison from './components/StockComparison';
 import { addHistory } from './utils/localStorage';
+import { getCachedScreenResult, setCachedScreenResult, clearScreenCache } from './utils/localStorage';
+import { getSettings, toggleTheme } from './utils/localStorage';
 import './App.css';
 
 type AppState = 'idle' | 'screening' | 'screened' | 'filtering' | 'filtered';
@@ -69,6 +71,12 @@ function App() {
   const [isScreenedCollapsed, setIsScreenedCollapsed] = useState<boolean>(false); // 新增：初步筛选结果是否折叠
   const [isUpdatingMargin, setIsUpdatingMargin] = useState<boolean>(false);
   const [showFavorites, setShowFavorites] = useState<boolean>(false); // 新增：显示自选股面板
+  const [sortBy, setSortBy] = useState<'default' | 'change' | 'ratio' | 'inflow' | 'cap'>('default'); // 排序方式
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc'); // 排序顺序
+  const [showSavePreset, setShowSavePreset] = useState<boolean>(false); // 显示保存预设对话框
+  const [searchKeyword, setSearchKeyword] = useState<string>(''); // 搜索关键词
+  const [theme, setTheme] = useState<'light' | 'dark'>(getSettings().theme); // 主题
+  const [selectedStocks, setSelectedStocks] = useState<Set<string>>(new Set()); // 批量选中的股票
 
   // 取消请求的控制器
   const cancelTokenSource = useRef<any>(null);
@@ -80,9 +88,9 @@ function App() {
       setIsUpdatingMargin(true);
       try {
           const result = await updateMarginStocks();
-          alert(`更新成功: ${result.message}`);
+          alert(`✅ 更新成功！\n${result.message}`);
       } catch (err: any) {
-          alert(`更新失败: ${err.message || '未知错误'}`);
+          alert(`❌ 更新失败：${err.message || '未知错误'}`);
       } finally {
           setIsUpdatingMargin(false);
       }
@@ -95,6 +103,20 @@ function App() {
     setFilteredStocks([]);
     setAnalysisResults([]);
     setMarketEnv(null);  // 清除旧的市场环境数据
+    setFilterProgress('正在获取全市场数据...');
+
+    // 检查缓存
+    const cached = getCachedScreenResult(filterConfig);
+    if (cached) {
+      console.log('✅ 使用缓存数据');
+      setFilterProgress('');
+      setScreenedStocks(cached.stocks);
+      if (cached.marketEnv) {
+        setMarketEnv(cached.marketEnv as any);
+      }
+      setState('screened');
+      return;
+    }
 
     try {
       let result;
@@ -120,15 +142,19 @@ function App() {
           require_margin: requireMargin,
         });
       }
+      setFilterProgress('');
       setScreenedStocks(result.data);
       // 设置市场环境数据（如果有）
       if (result.market_environment) {
         setMarketEnv(result.market_environment as any);
       }
+      // 保存到缓存
+      setCachedScreenResult(filterConfig, result.data, result.market_environment);
       // 添加到历史记录
       addHistory(filterConfig, result.data.length, result.market_environment);
       setState('screened');
     } catch (err: any) {
+      setFilterProgress('');
       setError(err.response?.data?.detail || '筛选失败，请稍后重试');
       setState('idle');
     }
@@ -234,6 +260,201 @@ function App() {
     return amount.toFixed(2);
   };
 
+  // 计算统计数据
+  const getStatistics = () => {
+    if (screenedStocks.length === 0) return null;
+    
+    const avgChange = screenedStocks.reduce((sum, s) => sum + s.change_percent, 0) / screenedStocks.length;
+    const avgRatio = screenedStocks.reduce((sum, s) => sum + s.volume_ratio, 0) / screenedStocks.length;
+    const avgCap = screenedStocks.reduce((sum, s) => sum + s.market_cap, 0) / screenedStocks.length;
+    const totalInflow = screenedStocks.reduce((sum, s) => sum + (s.main_inflow ?? 0), 0);
+    const inflowCount = screenedStocks.filter(s => (s.main_inflow ?? 0) > 0).length;
+    
+    return {
+      avgChange: avgChange.toFixed(2),
+      avgRatio: avgRatio.toFixed(2),
+      avgCap: avgCap.toFixed(1),
+      totalInflow: totalInflow.toFixed(2),
+      inflowCount,
+      inflowRate: ((inflowCount / screenedStocks.length) * 100).toFixed(1)
+    };
+  };
+
+  // 排序股票列表
+  const getSortedStocks = () => {
+    let stocks = screenedStocks;
+    
+    // 先应用搜索过滤
+    if (searchKeyword.trim()) {
+      const keyword = searchKeyword.trim().toLowerCase();
+      stocks = stocks.filter(s => 
+        s.name.toLowerCase().includes(keyword) || 
+        s.code.includes(keyword)
+      );
+    }
+    
+    // 再应用排序
+    if (sortBy === 'default') return stocks;
+    
+    const sorted = [...stocks].sort((a, b) => {
+      let compareValue = 0;
+      
+      switch (sortBy) {
+        case 'change':
+          compareValue = a.change_percent - b.change_percent;
+          break;
+        case 'ratio':
+          compareValue = a.volume_ratio - b.volume_ratio;
+          break;
+        case 'inflow':
+          compareValue = (a.main_inflow ?? 0) - (b.main_inflow ?? 0);
+          break;
+        case 'cap':
+          compareValue = a.market_cap - b.market_cap;
+          break;
+      }
+      
+      return sortOrder === 'asc' ? compareValue : -compareValue;
+    });
+    
+    return sorted;
+  };
+
+  // 切换排序
+  const handleSort = (field: typeof sortBy) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
+  };
+
+  // 保存自定义预设
+  const handleSavePreset = () => {
+    const presetName = prompt('请输入预设名称：');
+    if (!presetName) return;
+    
+    const presetDesc = prompt('请输入预设描述（可选）：') || '';
+    
+    const success = import('./utils/localStorage').then(({ addPreset }) => {
+      return addPreset({
+        name: presetName,
+        description: presetDesc,
+        config: filterConfig
+      });
+    });
+    
+    success.then(result => {
+      if (result) {
+        alert('✅ 预设保存成功！');
+      } else {
+        alert('❌ 预设保存失败');
+      }
+    });
+  };
+
+  // 清除缓存
+  const handleClearCache = () => {
+    if (confirm('确定要清除所有缓存数据吗？\n这将清除筛选结果缓存，但不会影响自选股和历史记录。')) {
+      clearScreenCache();
+      alert('✅ 缓存已清除！');
+    }
+  };
+
+  // 切换主题
+  const handleToggleTheme = () => {
+    const newTheme = toggleTheme();
+    setTheme(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+  };
+
+  // 批量选择
+  const handleSelectStock = (code: string) => {
+    const newSelected = new Set(selectedStocks);
+    if (newSelected.has(code)) {
+      newSelected.delete(code);
+    } else {
+      newSelected.add(code);
+    }
+    setSelectedStocks(newSelected);
+  };
+
+  // 全选/取消全选
+  const handleSelectAll = () => {
+    if (selectedStocks.size === getSortedStocks().length) {
+      setSelectedStocks(new Set());
+    } else {
+      setSelectedStocks(new Set(getSortedStocks().map(s => s.code)));
+    }
+  };
+
+  // 批量添加到自选
+  const handleBatchAddToFavorites = () => {
+    if (selectedStocks.size === 0) {
+      alert('请先选择股票');
+      return;
+    }
+    
+    import('./utils/localStorage').then(({ addFavorite }) => {
+      let successCount = 0;
+      const stocks = getSortedStocks().filter(s => selectedStocks.has(s.code));
+      
+      stocks.forEach(stock => {
+        if (addFavorite({ code: stock.code, name: stock.name })) {
+          successCount++;
+        }
+      });
+      
+      alert(`✅ 成功添加 ${successCount} 只股票到自选！`);
+      setSelectedStocks(new Set());
+    });
+  };
+
+  // 键盘快捷键
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + Enter: 开始筛选
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (state === 'idle' || state === 'screened') {
+          handleScreen();
+        }
+      }
+      
+      // Ctrl/Cmd + F: 精选过滤
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        if (state === 'screened' && screenedStocks.length > 0) {
+          handleFilter();
+        }
+      }
+      
+      // Ctrl/Cmd + R: 重置
+      if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        if (state !== 'idle') {
+          handleReset();
+        }
+      }
+      
+      // Esc: 取消分析
+      if (e.key === 'Escape') {
+        if (state === 'filtering') {
+          handleCancelFilter();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [state, screenedStocks.length]);
+
+  // 应用主题
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
   return (
     <div className="app">
       {/* 头部 */}
@@ -242,6 +463,27 @@ function App() {
           <div className="logo">
             <span className="logo-icon">📊</span>
             <h1>股票智能筛选器</h1>
+            <span style={{
+              marginLeft: '10px',
+              padding: '2px 8px',
+              fontSize: '12px',
+              background: '#52c41a',
+              color: 'white',
+              borderRadius: '4px',
+              fontWeight: 'bold'
+            }}>
+              v4.6.0
+            </span>
+            <span style={{
+              marginLeft: '8px',
+              padding: '2px 8px',
+              fontSize: '11px',
+              background: '#1890ff',
+              color: 'white',
+              borderRadius: '4px'
+            }} title="使用AKShare真实数据">
+              ✅ 真实数据
+            </span>
             <button 
                 onClick={() => setShowFavorites(true)} 
                 style={{
@@ -271,10 +513,41 @@ function App() {
                     cursor: isUpdatingMargin ? 'not-allowed' : 'pointer'
                 }}
             >
-                {isUpdatingMargin ? '更新中...' : '更新数据'}
+                {isUpdatingMargin ? '更新中...' : '🔄 刷新数据'}
+            </button>
+            <button 
+                onClick={handleClearCache}
+                style={{
+                    marginLeft: '8px',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    borderRadius: '4px',
+                    border: '1px solid #ff4d4f',
+                    background: '#fff',
+                    color: '#ff4d4f',
+                    cursor: 'pointer'
+                }}
+                title="清除筛选结果缓存"
+            >
+                🗑️ 清除缓存
+            </button>
+            <button 
+                onClick={handleToggleTheme}
+                style={{
+                    marginLeft: '8px',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    borderRadius: '4px',
+                    border: '1px solid #d9d9d9',
+                    background: '#fff',
+                    cursor: 'pointer'
+                }}
+                title="切换深色/浅色模式"
+            >
+                {theme === 'light' ? '🌙 深色' : '☀️ 浅色'}
             </button>
           </div>
-          <p className="tagline">基于量价分析的A股精选系统 v4.5.0</p>
+          <p className="tagline">基于量价分析的A股精选系统 v4.6.0 | 免费真实数据版</p>
         </div>
       </header>
 
@@ -436,23 +709,52 @@ function App() {
                 </label>
               </div>
             </div>
-            <button
-              className={`action-btn screen-btn ${state === 'screening' ? 'loading' : ''}`}
-              onClick={handleScreen}
-              disabled={state === 'screening' || state === 'filtering'}
-            >
-              {state === 'screening' ? (
-                <>
-                  <span className="spinner"></span>
-                  筛选中...
-                </>
-              ) : (
-                <>
-                  <span className="btn-icon">🎯</span>
-                  开始筛选
-                </>
-              )}
-            </button>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <button
+                className={`action-btn screen-btn ${state === 'screening' ? 'loading' : ''}`}
+                onClick={handleScreen}
+                disabled={state === 'screening' || state === 'filtering'}
+                style={{ flex: 1 }}
+              >
+                {state === 'screening' ? (
+                  <>
+                    <span className="spinner"></span>
+                    {filterProgress || '筛选中...'}
+                  </>
+                ) : (
+                  <>
+                    <span className="btn-icon">🎯</span>
+                    开始筛选
+                  </>
+                )}
+              </button>
+              <button
+                onClick={handleSavePreset}
+                disabled={state === 'screening' || state === 'filtering'}
+                style={{
+                  padding: '10px 15px',
+                  fontSize: '14px',
+                  borderRadius: '6px',
+                  border: '1px solid #52c41a',
+                  background: '#fff',
+                  color: '#52c41a',
+                  cursor: state === 'screening' || state === 'filtering' ? 'not-allowed' : 'pointer',
+                  opacity: state === 'screening' || state === 'filtering' ? 0.5 : 1
+                }}
+                title="保存当前筛选条件为预设"
+              >
+                💾 保存预设
+              </button>
+            </div>
+            
+            {/* 筛选进度提示 */}
+            {state === 'screening' && filterProgress && (
+              <div className="progress-tip loading-pulse" style={{ marginTop: '10px' }}>
+                <span className="progress-icon">⏳</span>
+                <span>{filterProgress}</span>
+                <span className="progress-note">（预计 8-12 秒）</span>
+              </div>
+            )}
           </div>
 
           <div className="criteria-arrow">→</div>
@@ -533,7 +835,7 @@ function App() {
 
             {/* 进度提示 */}
             {filterProgress && (
-              <div className="progress-tip">
+              <div className="progress-tip loading-pulse">
                 <span className="progress-icon">⏳</span>
                 <span>{filterProgress}</span>
                 <span className="progress-note">（预计需要 1-3 分钟，请耐心等待）</span>
@@ -552,6 +854,27 @@ function App() {
           <div className="error-banner">
             <span className="error-icon">⚠️</span>
             <span>{error}</span>
+            <button 
+              onClick={() => {
+                setError(null);
+                if (state === 'idle' || state === 'screened') {
+                  handleScreen();
+                }
+              }} 
+              className="retry-btn"
+              style={{
+                marginLeft: '10px',
+                padding: '4px 12px',
+                fontSize: '13px',
+                borderRadius: '4px',
+                border: '1px solid #1890ff',
+                background: '#fff',
+                color: '#1890ff',
+                cursor: 'pointer'
+              }}
+            >
+              🔄 重试
+            </button>
             <button onClick={() => setError(null)} className="close-btn">×</button>
           </div>
         )}
@@ -614,13 +937,135 @@ function App() {
         {/* 筛选结果 */}
         {screenedStocks.length > 0 && (
           <section className="results-section">
+            {/* 统计面板 */}
+            {getStatistics() && (
+              <div style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '12px',
+                padding: '20px',
+                marginBottom: '20px',
+                color: 'white',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>📊 筛选结果统计</h3>
+                  <span style={{ fontSize: '12px', opacity: 0.9 }}>共 {screenedStocks.length} 只股票</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
+                  <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '5px' }}>平均涨幅</div>
+                    <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{getStatistics()?.avgChange}%</div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '5px' }}>平均量比</div>
+                    <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{getStatistics()?.avgRatio}</div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '5px' }}>平均市值</div>
+                    <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{getStatistics()?.avgCap}亿</div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '5px' }}>资金净流入</div>
+                    <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{getStatistics()?.totalInflow}亿</div>
+                  </div>
+                  <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ fontSize: '12px', opacity: 0.9, marginBottom: '5px' }}>资金流入率</div>
+                    <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{getStatistics()?.inflowRate}%</div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="section-header">
               <h2>
                 <span className="section-icon">📋</span>
                 初步筛选结果
-                <span className="count-badge">{screenedStocks.length}只</span>
+                <span className="count-badge">{getSortedStocks().length}只</span>
+                {searchKeyword && <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>（已过滤）</span>}
               </h2>
               <div className="header-actions">
+                {/* 搜索框 */}
+                <input
+                  type="text"
+                  placeholder="🔍 搜索股票名称或代码..."
+                  value={searchKeyword}
+                  onChange={(e) => setSearchKeyword(e.target.value)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '13px',
+                    borderRadius: '4px',
+                    border: '1px solid #d9d9d9',
+                    outline: 'none',
+                    width: '200px',
+                    marginRight: '10px'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#1890ff'}
+                  onBlur={(e) => e.target.style.borderColor = '#d9d9d9'}
+                />
+                
+                {/* 排序按钮 */}
+                <div style={{ display: 'flex', gap: '5px', marginRight: '10px' }}>
+                  <button
+                    onClick={() => handleSort('change')}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      borderRadius: '4px',
+                      border: sortBy === 'change' ? '1px solid #1890ff' : '1px solid #d9d9d9',
+                      background: sortBy === 'change' ? '#e6f7ff' : '#fff',
+                      color: sortBy === 'change' ? '#1890ff' : '#666',
+                      cursor: 'pointer'
+                    }}
+                    title="按涨跌幅排序"
+                  >
+                    涨幅 {sortBy === 'change' && (sortOrder === 'desc' ? '↓' : '↑')}
+                  </button>
+                  <button
+                    onClick={() => handleSort('ratio')}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      borderRadius: '4px',
+                      border: sortBy === 'ratio' ? '1px solid #1890ff' : '1px solid #d9d9d9',
+                      background: sortBy === 'ratio' ? '#e6f7ff' : '#fff',
+                      color: sortBy === 'ratio' ? '#1890ff' : '#666',
+                      cursor: 'pointer'
+                    }}
+                    title="按量比排序"
+                  >
+                    量比 {sortBy === 'ratio' && (sortOrder === 'desc' ? '↓' : '↑')}
+                  </button>
+                  <button
+                    onClick={() => handleSort('inflow')}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      borderRadius: '4px',
+                      border: sortBy === 'inflow' ? '1px solid #1890ff' : '1px solid #d9d9d9',
+                      background: sortBy === 'inflow' ? '#e6f7ff' : '#fff',
+                      color: sortBy === 'inflow' ? '#1890ff' : '#666',
+                      cursor: 'pointer'
+                    }}
+                    title="按主力净流入排序"
+                  >
+                    资金 {sortBy === 'inflow' && (sortOrder === 'desc' ? '↓' : '↑')}
+                  </button>
+                  <button
+                    onClick={() => handleSort('cap')}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      borderRadius: '4px',
+                      border: sortBy === 'cap' ? '1px solid #1890ff' : '1px solid #d9d9d9',
+                      background: sortBy === 'cap' ? '#e6f7ff' : '#fff',
+                      color: sortBy === 'cap' ? '#1890ff' : '#666',
+                      cursor: 'pointer'
+                    }}
+                    title="按市值排序"
+                  >
+                    市值 {sortBy === 'cap' && (sortOrder === 'desc' ? '↓' : '↑')}
+                  </button>
+                </div>
                 <button
                   className="collapse-btn"
                   onClick={() => setIsScreenedCollapsed(!isScreenedCollapsed)}
@@ -680,7 +1125,7 @@ function App() {
 
             {isBandTradingMode ? (
               <div className="beginner-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px'}}>
-                {screenedStocks.map((stock) => (
+                {getSortedStocks().map((stock) => (
                   <StockCard key={stock.code} stock={stock} />
                 ))}
               </div>
@@ -700,7 +1145,7 @@ function App() {
                 <span className="col-action">建议</span>
               </div>
               <div className="table-body">
-                {screenedStocks.map((stock, index) => (
+                {getSortedStocks().map((stock, index) => (
                   <div
                     key={stock.code}
                     className={`table-row ${analysisResults.find(a => a.code === stock.code)?.qualified ? 'qualified' : ''
@@ -1309,6 +1754,29 @@ function App() {
           }}
         />
       )}
+
+      {/* 快捷键提示 */}
+      <div style={{
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        background: 'rgba(0, 0, 0, 0.75)',
+        color: 'white',
+        padding: '12px 16px',
+        borderRadius: '8px',
+        fontSize: '12px',
+        backdropFilter: 'blur(10px)',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        zIndex: 999
+      }}>
+        <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>⌨️ 快捷键</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div><kbd style={{ background: '#333', padding: '2px 6px', borderRadius: '3px', marginRight: '8px' }}>Ctrl+Enter</kbd> 开始筛选</div>
+          <div><kbd style={{ background: '#333', padding: '2px 6px', borderRadius: '3px', marginRight: '8px' }}>Ctrl+F</kbd> 精选过滤</div>
+          <div><kbd style={{ background: '#333', padding: '2px 6px', borderRadius: '3px', marginRight: '8px' }}>Ctrl+R</kbd> 重置</div>
+          <div><kbd style={{ background: '#333', padding: '2px 6px', borderRadius: '3px', marginRight: '8px' }}>Esc</kbd> 取消分析</div>
+        </div>
+      </div>
     </div>
   );
 }

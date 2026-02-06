@@ -292,6 +292,76 @@ export function updateSettings(settings: Partial<AppSettings>): boolean {
   }
 }
 
+export function toggleTheme(): 'light' | 'dark' {
+  const settings = getSettings();
+  const newTheme = settings.theme === 'light' ? 'dark' : 'light';
+  updateSettings({ theme: newTheme });
+  return newTheme;
+}
+
+// ==================== 筛选结果缓存 ====================
+
+export interface CachedScreenResult {
+  timestamp: string;
+  config: any;
+  stocks: any[];
+  marketEnv?: any;
+  expiresAt: string;
+}
+
+export function getCachedScreenResult(config: any): CachedScreenResult | null {
+  try {
+    const cacheKey = `screen_cache_${JSON.stringify(config)}`;
+    const data = localStorage.getItem(cacheKey);
+    
+    if (!data) return null;
+    
+    const cached: CachedScreenResult = JSON.parse(data);
+    
+    // 检查是否过期（5分钟）
+    if (new Date(cached.expiresAt) < new Date()) {
+      localStorage.removeItem(cacheKey);
+      return null;
+    }
+    
+    return cached;
+  } catch (error) {
+    console.error('获取缓存失败:', error);
+    return null;
+  }
+}
+
+export function setCachedScreenResult(config: any, stocks: any[], marketEnv?: any): void {
+  try {
+    const cacheKey = `screen_cache_${JSON.stringify(config)}`;
+    
+    const cached: CachedScreenResult = {
+      timestamp: new Date().toISOString(),
+      config,
+      stocks,
+      marketEnv,
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5分钟后过期
+    };
+    
+    localStorage.setItem(cacheKey, JSON.stringify(cached));
+  } catch (error) {
+    console.error('保存缓存失败:', error);
+  }
+}
+
+export function clearScreenCache(): void {
+  try {
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith('screen_cache_')) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch (error) {
+    console.error('清除缓存失败:', error);
+  }
+}
+
 // ==================== 数据清理 ====================
 
 export function clearAllData(): void {
