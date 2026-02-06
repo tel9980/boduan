@@ -897,6 +897,39 @@ async def band_trading_screen(
     }
 
 
+@app.post("/api/trigger-screening")
+async def trigger_screening():
+    """手动触发筛选任务"""
+    import subprocess
+    import os
+    
+    try:
+        # 检查scheduler是否在运行
+        result_file = "screening_result.json"
+        if os.path.exists(result_file):
+            # 读取当前缓存时间
+            with open(result_file, 'r', encoding='utf-8') as f:
+                cached = json.load(f)
+            cache_time = datetime.fromisoformat(cached['timestamp'])
+            age_minutes = (datetime.now() - cache_time).total_seconds() / 60
+            
+            return {
+                "success": True,
+                "message": f"后台任务正在运行，上次更新：{age_minutes:.1f}分钟前。请等待下次自动更新（每5分钟）",
+                "cache_age_minutes": round(age_minutes, 1)
+            }
+        else:
+            return {
+                "success": False,
+                "message": "后台筛选任务未启动，请运行：python scheduler.py"
+            }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"触发失败：{str(e)}"
+        }
+
+
 @app.get("/api/band-trading-realtime")
 async def band_trading_screen_realtime(
     change_min: float = Query(-2.0, description="涨幅下限(%)"),
