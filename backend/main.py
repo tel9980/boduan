@@ -855,6 +855,57 @@ async def band_trading_screen(
     market_cap_max: float = Query(160, description="市值上限(亿)"),
     limit: int = Query(3, description="返回数量（最多3只）"),
 ):
+    """波段交易专用筛选 - 快速版（读取缓存）"""
+    import os
+    import json
+    from datetime import datetime
+    
+    # 读取缓存结果
+    result_file = "screening_result.json"
+    
+    if os.path.exists(result_file):
+        try:
+            with open(result_file, 'r', encoding='utf-8') as f:
+                cached = json.load(f)
+            
+            # 检查缓存时间（不超过10分钟）
+            cache_time = datetime.fromisoformat(cached['timestamp'])
+            age_minutes = (datetime.now() - cache_time).total_seconds() / 60
+            
+            if age_minutes < 10:
+                print(f"✅ 使用缓存数据（{age_minutes:.1f}分钟前）")
+                
+                # 返回前N只
+                data = cached['data'][:limit]
+                
+                return {
+                    "success": True,
+                    "count": len(data),
+                    "data": data,
+                    "cache_age_minutes": round(age_minutes, 1),
+                    "message": f"数据来自{age_minutes:.1f}分钟前的缓存"
+                }
+        except Exception as e:
+            print(f"⚠️ 读取缓存失败：{e}")
+    
+    # 如果没有缓存或缓存过期，返回提示
+    return {
+        "success": False,
+        "count": 0,
+        "data": [],
+        "message": "请先启动后台筛选任务：python scheduler.py"
+    }
+
+
+@app.get("/api/band-trading-realtime")
+async def band_trading_screen_realtime(
+    change_min: float = Query(-2.0, description="涨幅下限(%)"),
+    change_max: float = Query(5.0, description="涨幅上限(%)"),
+    volume_ratio_min: float = Query(1.5, description="量比下限"),
+    volume_ratio_max: float = Query(3.0, description="量比上限"),
+    market_cap_max: float = Query(160, description="市值上限(亿)"),
+    limit: int = Query(3, description="返回数量（最多3只）"),
+):
     """波段交易专用筛选 - 严格风控版"""
     try:
         print(f"\n{'='*60}")
