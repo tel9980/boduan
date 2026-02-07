@@ -1,0 +1,490 @@
+{
+  "timestamp": "2026-02-08T07:45:45.397097",
+  "strategy_type": "balanced",
+  "count": 3,
+  "data": [
+    {
+      "code": "600572",
+      "name": "康恩贝",
+      "price": 4.54,
+      "pre_close": 4.54,
+      "open": 4.62,
+      "volume": 872228.0,
+      "change": 0.0,
+      "change_percent": 0.0,
+      "high": 4.69,
+      "low": 4.54,
+      "amount": 40298.0,
+      "turnover": 3.45,
+      "pe_ratio": 16.73,
+      "market_cap": 115.13,
+      "total_value": 1.62,
+      "volume_ratio": 1.98,
+      "_pre_score": 65,
+      "score": 100,
+      "reasons": [
+        "💎💎 融资融券优质(评分100)",
+        "💰💰 融资大幅流入0.077亿",
+        "📉 小幅回调(0.0%)，优质买点",
+        "📊📊 量比完美(2.0)",
+        "💎 市值良好(115亿)",
+        "🔄 换手完美(3.5%)",
+        "🏛️ 沪市主板"
+      ],
+      "warnings": [],
+      "risk_level": "low",
+      "margin_info": {
+        "is_margin_eligible": true,
+        "margin_balance": 4.0,
+        "short_balance": 95,
+        "margin_ratio": 25,
+        "net_flow": 0.077,
+        "margin_score": 100,
+        "has_data": false
+      },
+      "capital_flow": {
+        "main_inflow": 0.03,
+        "is_inflow": false,
+        "flow_strength": "neutral",
+        "has_data": false
+      },
+      "board_type": {
+        "type": "sh",
+        "name": "沪市主板",
+        "color": "#0984e3",
+        "allowed": true
+      },
+      "industry": "医药生物",
+      "kline": [
+        {
+          "date": "Day-10",
+          "open": 4.49,
+          "close": 4.51,
+          "high": 4.51,
+          "low": 4.49,
+          "volume": 70000000
+        },
+        {
+          "date": "Day-9",
+          "open": 4.55,
+          "close": 4.54,
+          "high": 4.58,
+          "low": 4.51,
+          "volume": 98000000
+        },
+        {
+          "date": "Day-8",
+          "open": 4.62,
+          "close": 4.61,
+          "high": 4.62,
+          "low": 4.6,
+          "volume": 126000000
+        },
+        {
+          "date": "Day-7",
+          "open": 4.37,
+          "close": 4.37,
+          "high": 4.41,
+          "low": 4.33,
+          "volume": 54000000
+        },
+        {
+          "date": "Day-6",
+          "open": 4.44,
+          "close": 4.46,
+          "high": 4.48,
+          "low": 4.43,
+          "volume": 82000000
+        },
+        {
+          "date": "Day-5",
+          "open": 4.57,
+          "close": 4.59,
+          "high": 4.59,
+          "low": 4.57,
+          "volume": 110000000
+        },
+        {
+          "date": "Day-4",
+          "open": 4.8,
+          "close": 4.78,
+          "high": 4.82,
+          "low": 4.75,
+          "volume": 138000000
+        },
+        {
+          "date": "Day-3",
+          "open": 4.3,
+          "close": 4.29,
+          "high": 4.31,
+          "low": 4.28,
+          "volume": 66000000
+        },
+        {
+          "date": "Day-2",
+          "open": 4.49,
+          "close": 4.49,
+          "high": 4.53,
+          "low": 4.45,
+          "volume": 94000000
+        },
+        {
+          "date": "Day-1",
+          "open": 4.73,
+          "close": 4.74,
+          "high": 4.76,
+          "low": 4.71,
+          "volume": 122000000
+        },
+        {
+          "date": "Today",
+          "open": 4.54,
+          "close": 4.54,
+          "high": 4.63,
+          "low": 4.45,
+          "volume": 64000000
+        }
+      ],
+      "trade_points": {
+        "buy_price": 4.54,
+        "buy_timing": "适合买入",
+        "stop_loss": 4.31,
+        "stop_loss_percent": -5.0,
+        "target_price": 4.77,
+        "target_percent": 5.0,
+        "risk_reward_ratio": 1.0
+      },
+      "ai_analysis": "1. 走势平稳，没大起大落。\n2. 量价同步，买卖活跃。\n3. 平衡型配置，适合稳健投资。\n4. 稳妥持有，关注基本面。"
+    },
+    {
+      "code": "000525",
+      "name": "红太阳",
+      "price": 6.11,
+      "pre_close": 6.05,
+      "open": 6.25,
+      "volume": 592140.0,
+      "change": 0.06,
+      "change_percent": 0.99,
+      "high": 6.27,
+      "low": 5.89,
+      "amount": 36053.0,
+      "turnover": 5.33,
+      "pe_ratio": 88.66,
+      "market_cap": 79.62,
+      "total_value": 3.02,
+      "volume_ratio": 2.16,
+      "_pre_score": 55,
+      "score": 100,
+      "reasons": [
+        "📈 温和上涨(1.0%)，趋势良好",
+        "📊📊 量比完美(2.2)",
+        "�💎 市值优质(80亿)，成长空间大",
+        "🔄 换手完美(5.3%)"
+      ],
+      "warnings": [
+        "⚠️⚠️ 融资大幅流出0.06亿"
+      ],
+      "risk_level": "low",
+      "margin_info": {
+        "is_margin_eligible": true,
+        "margin_balance": 5.3,
+        "short_balance": 48,
+        "margin_ratio": 3,
+        "net_flow": -0.062,
+        "margin_score": 60,
+        "has_data": false
+      },
+      "capital_flow": {
+        "main_inflow": -1.04,
+        "is_inflow": false,
+        "flow_strength": "strong_out",
+        "has_data": false
+      },
+      "board_type": {
+        "type": "sz",
+        "name": "深市主板",
+        "color": "#00cec9",
+        "allowed": true
+      },
+      "industry": "综合",
+      "kline": [
+        {
+          "date": "Day-10",
+          "open": 6.02,
+          "close": 6.05,
+          "high": 6.05,
+          "low": 6.02,
+          "volume": 100000000
+        },
+        {
+          "date": "Day-9",
+          "open": 5.99,
+          "close": 5.99,
+          "high": 5.99,
+          "low": 5.99,
+          "volume": 75000000
+        },
+        {
+          "date": "Day-8",
+          "open": 5.84,
+          "close": 5.87,
+          "high": 5.87,
+          "low": 5.84,
+          "volume": 50000000
+        },
+        {
+          "date": "Day-7",
+          "open": 6.17,
+          "close": 6.17,
+          "high": 6.17,
+          "low": 6.17,
+          "volume": 125000000
+        },
+        {
+          "date": "Day-6",
+          "open": 6.02,
+          "close": 6.05,
+          "high": 6.05,
+          "low": 6.02,
+          "volume": 100000000
+        },
+        {
+          "date": "Day-5",
+          "open": 5.87,
+          "close": 5.87,
+          "high": 5.87,
+          "low": 5.87,
+          "volume": 75000000
+        },
+        {
+          "date": "Day-4",
+          "open": 5.6,
+          "close": 5.63,
+          "high": 5.63,
+          "low": 5.6,
+          "volume": 50000000
+        },
+        {
+          "date": "Day-3",
+          "open": 6.29,
+          "close": 6.29,
+          "high": 6.29,
+          "low": 6.29,
+          "volume": 125000000
+        },
+        {
+          "date": "Day-2",
+          "open": 6.02,
+          "close": 6.05,
+          "high": 6.05,
+          "low": 6.02,
+          "volume": 100000000
+        },
+        {
+          "date": "Day-1",
+          "open": 5.75,
+          "close": 5.75,
+          "high": 5.75,
+          "low": 5.75,
+          "volume": 75000000
+        },
+        {
+          "date": "Today",
+          "open": 6.05,
+          "close": 6.11,
+          "high": 6.23,
+          "low": 5.93,
+          "volume": 70000000
+        }
+      ],
+      "trade_points": {
+        "buy_price": 6.11,
+        "buy_timing": "适合买入",
+        "stop_loss": 5.8,
+        "stop_loss_percent": -5.0,
+        "target_price": 6.48,
+        "target_percent": 6.0,
+        "risk_reward_ratio": 1.2
+      },
+      "ai_analysis": "走势平稳，量价齐升。适合长期持有，分散风险。建议关注基本面，逢低吸纳。"
+    },
+    {
+      "code": "300193",
+      "name": "佳士科技",
+      "price": 9.63,
+      "pre_close": 9.48,
+      "open": 9.48,
+      "volume": 254689.0,
+      "change": 0.15,
+      "change_percent": 1.58,
+      "high": 9.92,
+      "low": 9.4,
+      "amount": 24662.0,
+      "turnover": 6.07,
+      "pe_ratio": 19.47,
+      "market_cap": 45.86,
+      "total_value": 1.99,
+      "volume_ratio": 1.89,
+      "_pre_score": 55,
+      "score": 100,
+      "reasons": [
+        "💎 融资融券良好(评分65)",
+        "📈 温和上涨(1.6%)，趋势良好",
+        "📊📊 量比完美(1.9)",
+        "�💎 市值优质(46亿)，成长空间大",
+        "🔄 换手适中(6.1%)",
+        "🚀 创业板成长股"
+      ],
+      "warnings": [
+        "⚠️⚠️ 融资大幅流出0.09亿"
+      ],
+      "risk_level": "low",
+      "margin_info": {
+        "is_margin_eligible": true,
+        "margin_balance": 2.1,
+        "short_balance": 16,
+        "margin_ratio": 21,
+        "net_flow": -0.089,
+        "margin_score": 65,
+        "has_data": false
+      },
+      "capital_flow": {
+        "main_inflow": -1.24,
+        "is_inflow": false,
+        "flow_strength": "strong_out",
+        "has_data": false
+      },
+      "board_type": {
+        "type": "cyb",
+        "name": "创业板",
+        "color": "#6c5ce7",
+        "allowed": true
+      },
+      "industry": "信息技术",
+      "kline": [
+        {
+          "date": "Day-10",
+          "open": 9.4,
+          "close": 9.44,
+          "high": 9.44,
+          "low": 9.4,
+          "volume": 80000000
+        },
+        {
+          "date": "Day-9",
+          "open": 9.45,
+          "close": 9.43,
+          "high": 9.49,
+          "low": 9.39,
+          "volume": 87000000
+        },
+        {
+          "date": "Day-8",
+          "open": 9.44,
+          "close": 9.45,
+          "high": 9.52,
+          "low": 9.36,
+          "volume": 94000000
+        },
+        {
+          "date": "Day-7",
+          "open": 9.45,
+          "close": 9.49,
+          "high": 9.51,
+          "low": 9.43,
+          "volume": 101000000
+        },
+        {
+          "date": "Day-6",
+          "open": 9.58,
+          "close": 9.56,
+          "high": 9.64,
+          "low": 9.5,
+          "volume": 108000000
+        },
+        {
+          "date": "Day-5",
+          "open": 9.65,
+          "close": 9.65,
+          "high": 9.65,
+          "low": 9.65,
+          "volume": 115000000
+        },
+        {
+          "date": "Day-4",
+          "open": 9.74,
+          "close": 9.77,
+          "high": 9.81,
+          "low": 9.7,
+          "volume": 122000000
+        },
+        {
+          "date": "Day-3",
+          "open": 9.96,
+          "close": 9.92,
+          "high": 10.04,
+          "low": 9.84,
+          "volume": 129000000
+        },
+        {
+          "date": "Day-2",
+          "open": 10.1,
+          "close": 10.09,
+          "high": 10.12,
+          "low": 10.07,
+          "volume": 136000000
+        },
+        {
+          "date": "Day-1",
+          "open": 10.27,
+          "close": 10.3,
+          "high": 10.36,
+          "low": 10.21,
+          "volume": 143000000
+        },
+        {
+          "date": "Today",
+          "open": 9.48,
+          "close": 9.63,
+          "high": 9.82,
+          "low": 9.29,
+          "volume": 106000000
+        }
+      ],
+      "trade_points": {
+        "buy_price": 9.63,
+        "buy_timing": "适合买入",
+        "stop_loss": 9.15,
+        "stop_loss_percent": -5.0,
+        "target_price": 10.11,
+        "target_percent": 5.0,
+        "risk_reward_ratio": 1.0
+      },
+      "ai_analysis": "1. 走势稳健，小幅上涨。\n2. 量价同步，涨势良好。\n3. 平衡配置，稳健增长。\n4. 适合长期持有，耐心等待收益。"
+    }
+  ],
+  "market_environment": {
+    "status": "sideways",
+    "description": "震荡整理行情",
+    "advice": "波段操作，快进快出",
+    "strategy_adjust": {
+      "change_min": -2,
+      "change_max": 5
+    },
+    "statistics": {
+      "total_stocks": 4909,
+      "up_count": 2297,
+      "down_count": 2130,
+      "up_ratio": 46.8,
+      "avg_change": 0.22,
+      "avg_volume_ratio": 0.88
+    },
+    "timestamp": "2026-02-08 07:43:32"
+  },
+  "criteria": {
+    "change_range": "0.0% ~ 4.0%",
+    "volume_ratio_range": "1.8 ~ 3.0",
+    "market_cap_max": "≤160.0亿",
+    "strategy": "balanced"
+  }
+}

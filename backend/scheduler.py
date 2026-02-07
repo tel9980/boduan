@@ -12,13 +12,13 @@ import schedule
 from datetime import datetime
 
 # 导入main.py中的函数
-from main import get_all_stocks_data, get_margin_trading_info, get_board_type
+from main import get_all_stocks_data, get_margin_trading_info, get_board_type, get_industry
 
 # 筛选结果保存路径
 RESULT_FILE = "screening_result.json"
 
 def simple_screen():
-    """简单快速筛选"""
+    """简单快速筛选 - 板块分散版"""
     print(f"\n{'='*60}")
     print(f"🔄 开始自动筛选 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{'='*60}")
@@ -33,7 +33,11 @@ def simple_screen():
         volume_ratio_min, volume_ratio_max = 1.5, 3
         market_cap_max = 160
         
-        result = []
+        # 按板块分类存储
+        sh_stocks = []  # 沪市主板
+        sz_stocks = []  # 深市主板
+        cyb_stocks = []  # 创业板
+        
         checked = 0
         
         for stock in all_stocks:
@@ -70,29 +74,74 @@ def simple_screen():
             if not board.get('allowed', False):
                 continue
             
-            # 添加到结果
+            # 添加板块和融资融券信息
             stock['board_type'] = board
             stock['margin_info'] = margin_info
-            result.append(stock)
+            stock['industry'] = get_industry(name, code)  # 添加行业信息
             
-            # 最多保留50只
-            if len(result) >= 50:
+            # 按板块分类
+            if board['type'] == 'sh':
+                sh_stocks.append(stock)
+            elif board['type'] == 'sz':
+                sz_stocks.append(stock)
+            elif board['type'] == 'cyb':
+                cyb_stocks.append(stock)
+            
+            # 每个板块最多保留20只
+            if len(sh_stocks) >= 20 and len(sz_stocks) >= 20 and len(cyb_stocks) >= 20:
                 break
         
-        # 按涨幅排序
-        result.sort(key=lambda x: x['change_percent'], reverse=True)
+        # 按涨幅排序各板块
+        sh_stocks.sort(key=lambda x: x['change_percent'], reverse=True)
+        sz_stocks.sort(key=lambda x: x['change_percent'], reverse=True)
+        cyb_stocks.sort(key=lambda x: x['change_percent'], reverse=True)
+        
+        # 板块分散策略：优先选择不同板块
+        result = []
+        
+        # 1. 先从每个板块各选1只（确保分散）
+        if sh_stocks:
+            result.append(sh_stocks[0])
+        if sz_stocks:
+            result.append(sz_stocks[0])
+        if cyb_stocks:
+            result.append(cyb_stocks[0])
+        
+        # 2. 如果还不够3只，从剩余的补充
+        if len(result) < 3:
+            remaining = []
+            if len(sh_stocks) > 1:
+                remaining.extend(sh_stocks[1:])
+            if len(sz_stocks) > 1:
+                remaining.extend(sz_stocks[1:])
+            if len(cyb_stocks) > 1:
+                remaining.extend(cyb_stocks[1:])
+            
+            remaining.sort(key=lambda x: x['change_percent'], reverse=True)
+            result.extend(remaining[:3 - len(result)])
         
         # 保存结果
         output = {
             'timestamp': datetime.now().isoformat(),
             'count': len(result),
-            'data': result[:20]  # 只保存前20只
+            'data': result,
+            'board_distribution': {
+                'sh_count': sum(1 for s in result if s['board_type']['type'] == 'sh'),
+                'sz_count': sum(1 for s in result if s['board_type']['type'] == 'sz'),
+                'cyb_count': sum(1 for s in result if s['board_type']['type'] == 'cyb'),
+            },
+            'industry_distribution': {
+                industry: sum(1 for s in result if s.get('industry') == industry)
+                for industry in set(s.get('industry', '未知') for s in result)
+            }
         }
         
         with open(RESULT_FILE, 'w', encoding='utf-8') as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
         
         print(f"✅ 筛选完成：{len(all_stocks)} → {len(result)} 只")
+        print(f"📊 板块分布：沪市{output['board_distribution']['sh_count']}只 | 深市{output['board_distribution']['sz_count']}只 | 创业板{output['board_distribution']['cyb_count']}只")
+        print(f"🏭 行业分布：{' | '.join([f'{k}({v}只)' for k, v in output['industry_distribution'].items()])}")
         print(f"💾 结果已保存到 {RESULT_FILE}")
         print(f"{'='*60}\n")
         

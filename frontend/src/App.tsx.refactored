@@ -1,0 +1,592 @@
+/**
+ * 股票筛选器 - 重构版
+ * 使用新的自定义 Hooks 简化代码
+ * 
+ * 重构目标：
+ * 1. 使用 useFilterConfig 管理筛选配置
+ * 2. 使用 useUIState 管理 UI 状态
+ * 3. 使用 useDisplayState 管理面板显示
+ * 4. 使用 useStockScreening 管理筛选逻辑
+ * 5. 减少代码量，提高可维护性
+ */
+import { useEffect, useRef } from 'react';
+import { 
+  screenStocks, 
+  screenBandTradingStocks, 
+  filterStocks, 
+  createCancelToken, 
+  updateMarginStocks 
+} from './api/stock';
+import type { ScreenedStock } from './api/stock';
+import { 
+  useFilterConfig, 
+  useUIState, 
+  useDisplayState, 
+  useStockScreening 
+} from './hooks';
+
+// 组件导入
+import AIRadar from './components/AIRadar';
+import StockCard from './components/StockCard';
+import FilterPanel from './components/FilterPanel';
+import FinalPickCard from './components/FinalPickCard';
+import MarketEnvironmentComponent from './components/MarketEnvironment';
+import FavoritesPanel from './components/FavoritesPanel';
+import QuickFilters from './components/QuickFilters';
+import StockComparison from './components/StockComparison';
+import AlertCenter from './components/AlertCenter';
+import AddAlertDialog from './components/AddAlertDialog';
+import PortfolioTracker from './components/PortfolioTracker';
+import AddPositionDialog from './components/AddPositionDialog';
+import EditPositionDialog from './components/EditPositionDialog';
+
+// 工具函数
+import { 
+  addHistory, 
+  getHistory, 
+  deleteHistoryItem, 
+  clearHistory 
+} from './utils/localStorage';
+import { 
+  getCachedScreenResult, 
+  setCachedScreenResult 
+} from './utils/localStorage';
+import { 
+  getBoardHistory, 
+  addBoardHistory 
+} from './utils/localStorage';
+import { 
+  addTrackingRecord
+} from './utils/localStorage';
+import { 
+  addMarketEmotion
+} from './utils/localStorage';
+import { 
+  generateTradingPlan, 
+  saveTradingPlans 
+} from './utils/localStorage';
+
+// 服务
+import { AlertManager } from './services/AlertManager';
+import { NotificationService } from './services/NotificationService';
+import { PortfolioManager } from './services/PortfolioManager';
+
+import './App.css';
+
+// =============================================================================
+// 工具函数
+// =============================================================================
+
+/**
+ * 格式化金额
+ */
+const formatAmount = (amount: number): string => {
+  if (amount >= 100000000) {
+    return (amount / 100000000).toFixed(2) + '亿';
+  } else if (amount >= 10000) {
+    return (amount / 10000).toFixed(2) + '万';
+  }
+  return amount.toFixed(2);
+};
+
+/**
+ * 判断策略类型
+ */
+const getStrategyType = (changeMin: number, changeMax: number): string => {
+  if (changeMin >= 2 && changeMax >= 6) {
+    return 'aggressive';
+  } else if (changeMax <= 2 && changeMin <= 0) {
+    return 'conservative';
+  }
+  return 'balanced';
+};
+
+/**
+ * 计算市场情绪
+ */
+const calculateMarketEmotion = (stocks: ScreenedStock[]) => {
+  const riseCount = stocks.filter(s => s.change_percent > 0).length;
+  const fallCount = stocks.length - riseCount;
+  const riseRatio = riseCount / stocks.length;
+  const avgChange = stocks.reduce((sum, s) => sum + s.change_percent, 0) / stocks.length;
+  const avgRatio = stocks.reduce((sum, s) => sum + s.volume_ratio, 0) / stocks.length;
+  
+  const emotionScore = Math.round(
+    riseRatio * 40 +
+    Math.min(avgChange / 5 * 30, 30) +
+    Math.min(avgRatio / 3 * 20, 20) +
+    10
+  );
+  
+  let emotionLevel: string;
+  let suggestion: string;
+  
+  if (emotionScore < 20) {
+    emotionLevel = 'panic_extreme';
+    suggestion = '🟢 极度恐慌，重仓机会！';
+  } else if (emotionScore < 40) {
+    emotionLevel = 'panic';
+    suggestion = '🟢 市场恐慌，正常建仓。';
+  } else if (emotionScore < 60) {
+    emotionLevel = 'neutral';
+    suggestion = '🟡 市场中性，谨慎操作。';
+  } else if (emotionScore < 80) {
+    emotionLevel = 'optimistic';
+    suggestion = '🟠 市场乐观，建议减仓。';
+  } else {
+    emotionLevel = 'optimistic_extreme';
+    suggestion = '🔴 极度乐观，空仓避险！';
+  }
+  
+  return {
+    score: emotionScore,
+    level: emotionLevel,
+    riseCount,
+    fallCount,
+    riseRatio,
+    avgChange,
+    avgRatio,
+    suggestion
+  };
+};
+
+// =============================================================================
+// 主组件
+// =============================================================================
+
+function App() {
+  // 使用新的 Hooks
+  const filter = useFilterConfig();
+  const ui = useUIState();
+  const display = useDisplayState();
+  const screening = useStockScreening({ cacheExpiry: ui.cacheExpiry });
+  
+  // Refs
+  const cancelTokenSource = useRef<any>(null);
+  const alertManagerRef = useRef<AlertManager | null>(null);
+  const notificationServiceRef = useRef<NotificationService | null>(null);
+  const portfolioManagerRef = useRef<PortfolioManager | null>(null);
+
+  // =============================================================================
+  // 初始化
+  // =============================================================================
+  
+  useEffect(() => {
+    // 初始化提醒管理器
+    alertManagerRef.current = new AlertManager();
+    notificationServiceRef.current = new NotificationService();
+    portfolioManagerRef.current = new PortfolioManager();
+    
+    // 应用主题
+    document.documentElement.setAttribute('data-theme', ui.theme);
+    document.body.className = ui.theme === 'dark' ? 'dark-theme' : '';
+  }, [ui.theme]);
+  
+  // =============================================================================
+  // 事件处理
+  // =============================================================================
+  
+  /**
+   * 更新融资融券数据
+   */
+  const handleUpdateMargin = async () => {
+    try {
+      const result = await updateMarginStocks();
+      alert(`✅ 更新成功！\n${result.message}`);
+    } catch (err: any) {
+      alert(`❌ 更新失败：${err.message || '未知错误'}`);
+    }
+  };
+  
+  /**
+   * 执行筛选
+   */
+  const handleScreen = async () => {
+    screening.setError(null);
+    screening.setProgress('正在获取全市场数据...');
+    
+    // 检查缓存
+    const cached = getCachedScreenResult(filter.filterConfig, ui.cacheExpiry);
+    if (cached) {
+      screening.setScreenedStocks(cached.stocks);
+      if (cached.marketEnv) {
+        screening.setMarketEnv(cached.marketEnv);
+      }
+      return;
+    }
+    
+    try {
+      let result;
+      
+      if (filter.filterConfig.isBandTradingMode) {
+        const strategyType = getStrategyType(
+          filter.filterConfig.changeMin,
+          filter.filterConfig.changeMax
+        );
+        
+        result = await screenBandTradingStocks({
+          change_min: filter.filterConfig.changeMin,
+          change_max: filter.filterConfig.changeMax,
+          volume_ratio_min: filter.filterConfig.volumeRatioMin,
+          volume_ratio_max: filter.filterConfig.volumeRatioMax,
+          market_cap_max: filter.filterConfig.marketCapMax,
+          limit: 3,
+          strategy_type: strategyType,
+        });
+      } else {
+        result = await screenStocks({
+          change_min: filter.filterConfig.changeMin,
+          change_max: filter.filterConfig.changeMax,
+          volume_ratio_min: filter.filterConfig.volumeRatioMin,
+          volume_ratio_max: filter.filterConfig.volumeRatioMax,
+          market_cap_min: filter.filterConfig.marketCapMin,
+          market_cap_max: filter.filterConfig.marketCapMax,
+          limit: 30,
+          include_cyb: filter.filterConfig.includeKcbCyb,
+          require_margin: filter.filterConfig.requireMargin,
+        });
+      }
+      
+      screening.setScreenedStocks(result.data);
+      
+      if (result.market_environment) {
+        screening.setMarketEnv(result.market_environment);
+      }
+      
+      // 保存到缓存
+      setCachedScreenResult(filter.filterConfig, result.data, result.market_environment, ui.cacheExpiry);
+      
+      // 添加到历史记录
+      addHistory(filter.filterConfig, result.data.length, result.market_environment);
+      
+      // 保存板块历史
+      if (result.data.length > 0) {
+        const boardCounts = result.data.reduce((acc: any, stock: any) => {
+          const boardType = stock.board_type?.type || 'unknown';
+          acc[boardType] = (acc[boardType] || 0) + 1;
+          return acc;
+        }, {});
+        
+        const industryCounts = result.data.reduce((acc: any, stock: any) => {
+          const industry = stock.industry || '未知';
+          acc[industry] = (acc[industry] || 0) + 1;
+          return acc;
+        }, {});
+        
+        const avgChange = result.data.reduce((sum: number, s: any) => sum + s.change_percent, 0) / result.data.length;
+        const avgRatio = result.data.reduce((sum: number, s: any) => sum + s.volume_ratio, 0) / result.data.length;
+        
+        addBoardHistory({
+          boardDistribution: {
+            sh_count: boardCounts.sh || 0,
+            sz_count: boardCounts.sz || 0,
+            cyb_count: boardCounts.cyb || 0
+          },
+          industryDistribution: industryCounts,
+          avgChange,
+          avgRatio
+        });
+        
+        // 添加历史追踪
+        addTrackingRecord(result.data);
+        
+        // 计算市场情绪
+        const emotion = calculateMarketEmotion(result.data);
+        addMarketEmotion(emotion);
+        
+        // 生成交易计划
+        const plans = result.data.map((stock: any) => generateTradingPlan(stock));
+        screening.setTradingPlans(plans);
+        saveTradingPlans(plans);
+      }
+      
+      screening.setState('screened');
+    } catch (err: any) {
+      screening.setError(err.response?.data?.detail || '筛选失败，请稍后重试');
+      screening.setState('idle');
+    } finally {
+      screening.setProgress('');
+    }
+  };
+  
+  /**
+   * 执行过滤精选
+   */
+  const handleFilter = async () => {
+    if (screening.screenedStocks.length === 0) return;
+    
+    screening.setState('filtering');
+    screening.setError(null);
+    screening.setProgress('正在初始化分析...');
+    
+    // 创建取消令牌
+    cancelTokenSource.current = createCancelToken();
+    
+    // 进度提示
+    const tips = [
+      '正在获取实时行情数据...',
+      '正在分析K线走势...',
+      '正在计算资金流向...',
+      '正在检测技术指标...',
+      '正在评估风险因素...',
+      '正在进行AI综合评分...',
+      '正在生成交易计划...',
+      '即将完成分析...',
+    ];
+    let tipIndex = 0;
+    
+    const progressTimer = setInterval(() => {
+      screening.setProgress(tips[Math.min(tipIndex++, tips.length - 1)]);
+    }, 8000);
+    
+    try {
+      const codes = screening.screenedStocks.map(s => s.code);
+      const result = await filterStocks(
+        codes,
+        filter.filterConfig.includeKcbCyb,
+        filter.filterConfig.preferTailInflow,
+        filter.filterConfig.strictRiskControl,
+        cancelTokenSource.current.token
+      );
+      
+      clearInterval(progressTimer);
+      
+      screening.setFilteredStocks(result.data);
+      screening.setAnalysisResults(result.all_analysis);
+      screening.setAiSelectedStocks(result.ai_selected || []);
+      screening.setMarketEnv(result.market_environment || null);
+      screening.setFinalPick(result.final_pick || null);
+      screening.setFinalPicks(result.final_picks || []);
+      screening.setSelectedPickIndex(0);
+      display.setShowFinalPick(false);
+      display.setIsScreenedCollapsed(true);
+      screening.setState('filtered');
+    } catch (err: any) {
+      clearInterval(progressTimer);
+      
+      if (err.message === 'Cancel') {
+        screening.setError('分析已取消');
+      } else {
+        screening.setError(err.response?.data?.detail || '过滤失败，请稍后重试');
+      }
+      screening.setState('screened');
+    } finally {
+      screening.setProgress('');
+    }
+  };
+  
+  /**
+   * 取消过滤
+   */
+  const handleCancelFilter = () => {
+    if (cancelTokenSource.current) {
+      cancelTokenSource.current.cancel('Cancel');
+      screening.setProgress('');
+      screening.setState('screened');
+    }
+  };
+  
+  /**
+   * 重置
+   */
+  const handleReset = () => {
+    screening.clearResults();
+    display.setIsScreenedCollapsed(false);
+  };
+  
+  // =============================================================================
+  // 渲染
+  // =============================================================================
+  
+  return (
+    <div className={`app theme-${ui.theme}`}>
+      {/* 头部 */}
+      <header className="app-header">
+        <h1>📊 A股波段交易筛选系统</h1>
+        <div className="header-actions">
+          <button onClick={ui.toggleThemeMode}>
+            {ui.theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          <button onClick={() => ui.setShowSettings(true)}>
+            ⚙️ 设置
+          </button>
+        </div>
+      </header>
+      
+      {/* 筛选面板 */}
+      <FilterPanel
+        config={filter.filterConfig}
+        onChangeMinChange={filter.setChangeMin}
+        onChangeMaxChange={filter.setChangeMax}
+        onVolumeRatioMinChange={filter.setVolumeRatioMin}
+        onVolumeRatioMaxChange={filter.setVolumeRatioMax}
+        onMarketCapMinChange={filter.setMarketCapMin}
+        onMarketCapMaxChange={filter.setMarketCapMax}
+        onIncludeKcbCybChange={filter.setIncludeKcbCyb}
+        onPreferTailInflowChange={filter.setPreferTailInflow}
+        onStrictRiskControlChange={filter.setStrictRiskControl}
+        onIsBandTradingModeChange={filter.setIsBandTradingMode}
+      />
+      
+      {/* 操作按钮 */}
+      <div className="action-buttons">
+        <button 
+          onClick={handleScreen}
+          disabled={screening.state === 'screening'}
+          className="primary-button"
+        >
+          {screening.state === 'screening' ? '筛选中...' : '开始筛选'}
+        </button>
+        
+        {screening.state === 'screened' && (
+          <button onClick={handleFilter} className="secondary-button">
+            精选过滤
+          </button>
+        )}
+        
+        {screening.state === 'filtering' && (
+          <button onClick={handleCancelFilter} className="danger-button">
+            取消分析
+          </button>
+        )}
+        
+        <button onClick={handleReset} className="text-button">
+          重置
+        </button>
+      </div>
+      
+      {/* 进度显示 */}
+      {screening.progress && (
+        <div className="progress-bar">
+          <div className="progress-spinner" />
+          <span>{screening.progress}</span>
+        </div>
+      )}
+      
+      {/* 错误提示 */}
+      {screening.error && (
+        <div className="error-message">
+          ❌ {screening.error}
+        </div>
+      )}
+      
+      {/* 市场环境 */}
+      {screening.marketEnv && (
+        <MarketEnvironmentComponent data={screening.marketEnv} />
+      )}
+      
+      {/* 筛选结果 */}
+      {screening.state !== 'idle' && screening.screenedStocks.length > 0 && (
+        <section className="results-section">
+          <h2>
+            筛选结果 
+            <span className="count">({screening.screenedStocks.length}只)</span>
+          </h2>
+          
+          <div className="stock-grid">
+            {screening.screenedStocks.map(stock => (
+              <StockCard key={stock.code} stock={stock} />
+            ))}
+          </div>
+        </section>
+      )}
+      
+      {/* 精选结果 */}
+      {screening.finalPicks.length > 0 && (
+        <section className="final-picks-section">
+          <h2>精选推荐</h2>
+          <div className="final-picks-grid">
+            {screening.finalPicks.map((pick, index) => (
+              <FinalPickCard
+                key={pick.code}
+                pick={pick}
+                isSelected={index === screening.selectedPickIndex}
+                onClick={() => screening.setSelectedPickIndex(index)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+      
+      {/* 面板组件 */}
+      {display.showFavorites && (
+        <FavoritesPanel onClose={() => display.setShowFavorites(false)} />
+      )}
+      
+      {display.showComparison && (
+        <StockComparison onClose={() => display.setShowComparison(false)} />
+      )}
+      
+      {display.showAlertCenter && (
+        <AlertCenter
+          onClose={() => display.setShowAlertCenter(false)}
+          onAddAlert={() => {
+            display.setShowAlertCenter(false);
+            display.setShowAddAlert(true);
+          }}
+        />
+      )}
+      
+      {display.showAddAlert && (
+        <AddAlertDialog
+          onClose={() => display.setShowAddAlert(false)}
+          onSuccess={() => {
+            display.setShowAddAlert(false);
+            display.setShowAlertCenter(true);
+          }}
+        />
+      )}
+      
+      {display.showPortfolio && portfolioManagerRef.current && (
+        <PortfolioTracker
+          portfolioManager={portfolioManagerRef.current}
+          onClose={() => display.setShowPortfolio(false)}
+          onAddPosition={() => {
+            display.setShowPortfolio(false);
+            display.setShowAddPosition(true);
+          }}
+          onEditPosition={(position) => {
+            display.setShowPortfolio(false);
+            display.setEditingPosition(position);
+          }}
+        />
+      )}
+      
+      {display.showAddPosition && portfolioManagerRef.current && (
+        <AddPositionDialog
+          portfolioManager={portfolioManagerRef.current}
+          onClose={() => display.setShowAddPosition(false)}
+          onSuccess={() => {
+            display.setShowAddPosition(false);
+            display.setShowPortfolio(true);
+          }}
+        />
+      )}
+      
+      {display.editingPosition && portfolioManagerRef.current && (
+        <EditPositionDialog
+          portfolioManager={portfolioManagerRef.current}
+          position={display.editingPosition}
+          onClose={() => display.setEditingPosition(null)}
+          onSuccess={() => {
+            display.setEditingPosition(null);
+            display.setShowPortfolio(true);
+          }}
+        />
+      )}
+      
+      {/* 快捷键提示 */}
+      <div className="shortcuts-hint">
+        <div className="shortcuts-title">⌨️ 快捷键</div>
+        <div className="shortcuts-list">
+          <div><kbd>Ctrl+Enter</kbd> 开始筛选</div>
+          <div><kbd>Ctrl+F</kbd> 精选过滤</div>
+          <div><kbd>Ctrl+R</kbd> 重置</div>
+          <div><kbd>Esc</kbd> 取消分析</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;

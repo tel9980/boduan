@@ -47,19 +47,34 @@ const StockCard: React.FC<StockCardProps> = ({ stock }) => {
          <div>
             <div style={{fontSize: '18px', fontWeight: 'bold', color: '#333', marginBottom: '4px'}}>{stock.name}</div>
             <div style={{fontSize: '13px', color: '#999'}}>{stock.code}</div>
-            {stock.board_type && (
-              <span style={{
-                display: 'inline-block',
-                marginTop: '4px',
-                padding: '2px 8px',
-                borderRadius: '4px',
-                fontSize: '11px',
-                background: stock.board_type.color,
-                color: '#fff'
-              }}>
-                {stock.board_type.name}
-              </span>
-            )}
+            <div style={{display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap'}}>
+              {stock.board_type && (
+                <span style={{
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  background: stock.board_type.color,
+                  color: '#fff',
+                  fontWeight: 'bold'
+                }}>
+                  {stock.board_type.name}
+                </span>
+              )}
+              {stock.industry && (
+                <span style={{
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: '4px',
+                  fontSize: '11px',
+                  background: '#f0f0f0',
+                  color: '#666',
+                  border: '1px solid #d9d9d9'
+                }}>
+                  🏭 {stock.industry}
+                </span>
+              )}
+            </div>
          </div>
          <div style={{textAlign: 'right'}}>
             <div style={{
@@ -200,6 +215,49 @@ const StockCard: React.FC<StockCardProps> = ({ stock }) => {
             textAlign: 'center'
           }}>
             盈亏比 1:{stock.trade_points.risk_reward_ratio?.toFixed(2)}
+          </div>
+        </div>
+      )}
+
+      {/* AI 智能分析 */}
+      {stock.ai_analysis && (
+        <div style={{
+          marginTop: '12px',
+          marginBottom: '12px',
+          padding: '12px',
+          background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
+          borderRadius: '8px',
+          color: 'white',
+          boxShadow: '0 2px 8px rgba(24, 144, 255, 0.3)'
+        }}>
+          <div style={{
+            fontSize: '12px',
+            fontWeight: 'bold',
+            marginBottom: '8px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            opacity: 0.95
+          }}>
+            <span style={{fontSize: '16px'}}>🤖</span>
+            <span>AI 智能分析</span>
+            <span style={{
+              marginLeft: 'auto',
+              fontSize: '10px',
+              padding: '2px 6px',
+              background: 'rgba(255,255,255,0.2)',
+              borderRadius: '3px'
+            }}>
+              GLM-4-Flash
+            </span>
+          </div>
+          <div style={{
+            fontSize: '13px',
+            lineHeight: '1.7',
+            opacity: 0.95,
+            whiteSpace: 'pre-wrap'
+          }}>
+            {stock.ai_analysis}
           </div>
         </div>
       )}

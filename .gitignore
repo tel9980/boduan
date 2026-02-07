@@ -37,6 +37,12 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Security: Never commit files with secrets
+*.key
+*.pem
+secrets.json
+credentials.json
+
 # Logs
 *.log
 logs/

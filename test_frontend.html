@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API测试</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        #result { margin-top: 20px; padding: 15px; background: #f0f0f0; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>A股筛选系统 - API测试</h1>
+    
+    <button onclick="testAPI()">测试API</button>
+    <button onclick="testBalanced()">测试平衡型</button>
+    <button onclick="testAggressive()">测试激进型</button>
+    <button onclick="testConservative()">测试保守型</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '⏳ 测试中...';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/band-trading-realtime?strategy_type=balanced&limit=3');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ API测试成功</h3>
+                            <p><strong>返回股票数量：</strong>${data.count}</p>
+                            <p><strong>缓存年龄：</strong>${data.cache_age_minutes || 'N/A'}分钟</p>
+                            <p><strong>提示信息：</strong>${data.message || 'N/A'}</p>
+                            <h4>推荐股票：</h4>
+                            <ul>
+                                ${data.data.map(stock => `
+                                    <li>
+                                        <strong>${stock.name}(${stock.code})</strong> - 
+                                        涨幅:${stock.change_percent.toFixed(2)}% | 
+                                        量比:${stock.volume_ratio.toFixed(1)} | 
+                                        评分:${stock.score}
+                                        ${stock.ai_analysis ? '<br>🤖 AI: ' + stock.ai_analysis.substring(0, 100) + '...' : ''}
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ API错误: ${response.status} - ${data.detail || '未知错误'}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 请求失败: ${error.message}</div>`;
+            }
+        }
+        
+        async function testBalanced() {
+            await testStrategy('balanced', '平衡型');
+        }
+        
+        async function testAggressive() {
+            await testStrategy('aggressive', '激进型');
+        }
+        
+        async function testConservative() {
+            await testStrategy('conservative', '保守型');
+        }
+        
+        async function testStrategy(type, name) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `⏳ 测试${name}策略...`;
+            
+            try {
+                const response = await fetch(`http://localhost:8000/api/band-trading-realtime?strategy_type=${type}&limit=3`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>✅ ${name}策略测试成功</h3>
+                            <p><strong>返回股票数量：</strong>${data.count}</p>
+                            <p><strong>缓存年龄：</strong>${data.cache_age_minutes || 'N/A'}分钟</p>
+                            <h4>推荐股票：</h4>
+                            <ol>
+                                ${data.data.map(stock => `
+                                    <li>
+                                        <strong>${stock.name}(${stock.code})</strong><br>
+                                        涨幅:${stock.change_percent.toFixed(2)}% | 
+                                        量比:${stock.volume_ratio.toFixed(1)} | 
+                                        评分:${stock.score}<br>
+                                        ${stock.ai_analysis ? '🤖 ' + stock.ai_analysis : ''}
+                                    </li>
+                                `).join('')}
+                            </ol>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ API错误: ${response.status}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ 请求失败: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

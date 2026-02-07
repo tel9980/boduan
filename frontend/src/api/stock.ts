@@ -28,7 +28,7 @@ export interface ScreenedStock {
   amount: number;
   volume: number;
   main_inflow?: number;
-  ai_analysis?: string;
+  ai_analysis?: string;  // 新增：AI 智能分析
   beginner_score?: number;
   beginner_tags?: string[];
   score?: number;  // 新增：波段交易评分
@@ -359,6 +359,8 @@ export async function screenStocks(params?: {
     market_cap_range: string;
   };
   data: ScreenedStock[];
+  cache_age_minutes?: number;  // 新增：缓存数据年龄（分钟）
+  message?: string;  // 新增：提示信息
   market_environment?: {
     status: string;
     description: string;
@@ -380,12 +382,15 @@ export async function screenStocks(params?: {
 
 // 波段交易筛选响应
 export interface BandTradingResponse {
+  success?: boolean;  // 新增：请求是否成功
   count: number;
   criteria: {
     strategy: string;
     market_cap_max: string;
   };
   data: ScreenedStock[];
+  cache_age_minutes?: number;  // 新增：缓存数据年龄（分钟）
+  message?: string;  // 新增：提示信息
   market_environment?: {
     status: string;
     description: string;
@@ -412,8 +417,10 @@ export async function screenBandTradingStocks(params?: {
   limit?: number;
   macd_required?: boolean;
   kdj_required?: boolean;
+  strategy_type?: string;  // 新增：策略类型
 }): Promise<BandTradingResponse> {
-  const response = await api.get('/band-trading', { params });
+  // 使用实时端点以确保策略差异化排序生效
+  const response = await api.get('/band-trading-realtime', { params });
   return response.data;
 }
 

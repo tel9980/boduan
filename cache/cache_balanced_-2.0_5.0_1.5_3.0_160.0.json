@@ -1,0 +1,465 @@
+{
+  "timestamp": "2026-02-08T07:27:48.126407",
+  "strategy_type": "balanced",
+  "count": 3,
+  "data": [
+    {
+      "code": "600223",
+      "name": "福瑞达",
+      "price": 7.56,
+      "pre_close": 7.58,
+      "open": 7.54,
+      "volume": 165089.0,
+      "change": -0.02,
+      "change_percent": -0.26,
+      "high": 7.61,
+      "low": 7.51,
+      "amount": 12486.0,
+      "turnover": 1.62,
+      "pe_ratio": 35.89,
+      "market_cap": 76.85,
+      "total_value": 1.84,
+      "volume_ratio": 1.51,
+      "_pre_score": 65,
+      "score": 100,
+      "reasons": [
+        "💎💎 融资融券优质(评分95)",
+        "📉 小幅回调(-0.3%)，优质买点",
+        "📊📊 量比完美(1.5)",
+        "�💎 市值优质(77亿)，成长空间大",
+        "🏛️ 沪市主板"
+      ],
+      "warnings": [],
+      "risk_level": "low",
+      "margin_info": {
+        "is_margin_eligible": true,
+        "margin_balance": 5.1,
+        "short_balance": 106,
+        "margin_ratio": 26,
+        "net_flow": -0.014,
+        "margin_score": 95,
+        "has_data": false
+      },
+      "capital_flow": {
+        "main_inflow": -0.33,
+        "is_inflow": false,
+        "flow_strength": "neutral",
+        "has_data": false
+      },
+      "board_type": {
+        "type": "sh",
+        "name": "沪市主板",
+        "color": "#0984e3",
+        "allowed": true
+      },
+      "industry": "综合",
+      "kline": [
+        {
+          "date": "2026-01-26",
+          "open": 7.62,
+          "close": 7.65,
+          "high": 7.68,
+          "low": 7.51,
+          "volume": 176753
+        },
+        {
+          "date": "2026-01-27",
+          "open": 7.63,
+          "close": 7.56,
+          "high": 7.68,
+          "low": 7.46,
+          "volume": 122518
+        },
+        {
+          "date": "2026-01-28",
+          "open": 7.56,
+          "close": 7.51,
+          "high": 7.6,
+          "low": 7.48,
+          "volume": 91344
+        },
+        {
+          "date": "2026-01-29",
+          "open": 7.47,
+          "close": 7.54,
+          "high": 7.6,
+          "low": 7.42,
+          "volume": 99147
+        },
+        {
+          "date": "2026-01-30",
+          "open": 7.52,
+          "close": 7.5,
+          "high": 7.6,
+          "low": 7.42,
+          "volume": 116438
+        },
+        {
+          "date": "2026-02-02",
+          "open": 7.48,
+          "close": 7.36,
+          "high": 7.54,
+          "low": 7.36,
+          "volume": 93895
+        },
+        {
+          "date": "2026-02-03",
+          "open": 7.42,
+          "close": 7.48,
+          "high": 7.52,
+          "low": 7.4,
+          "volume": 73467
+        },
+        {
+          "date": "2026-02-04",
+          "open": 7.47,
+          "close": 7.53,
+          "high": 7.54,
+          "low": 7.43,
+          "volume": 91899
+        },
+        {
+          "date": "2026-02-05",
+          "open": 7.53,
+          "close": 7.58,
+          "high": 7.7,
+          "low": 7.51,
+          "volume": 172253
+        },
+        {
+          "date": "2026-02-06",
+          "open": 7.54,
+          "close": 7.56,
+          "high": 7.61,
+          "low": 7.51,
+          "volume": 165089
+        }
+      ],
+      "trade_points": {
+        "buy_price": 7.56,
+        "buy_timing": "立即买入",
+        "stop_loss": 7.18,
+        "stop_loss_percent": -5.0,
+        "target_price": 7.94,
+        "target_percent": 5.0,
+        "risk_reward_ratio": 1.0
+      },
+      "ai_analysis": "1. 走势平稳，小幅震荡。\n2. 量价同步，稳定增长。\n3. 平衡型策略，适合分散风险。\n4. 观望为主，关注支撑位。"
+    },
+    {
+      "code": "002905",
+      "name": "金逸影视",
+      "price": 13.25,
+      "pre_close": 13.33,
+      "open": 13.2,
+      "volume": 531075.0,
+      "change": -0.08,
+      "change_percent": -0.6,
+      "high": 13.89,
+      "low": 12.9,
+      "amount": 71010.0,
+      "turnover": 15.2,
+      "pe_ratio": 136.28,
+      "market_cap": 49.86,
+      "total_value": 52.5,
+      "volume_ratio": 1.76,
+      "_pre_score": 65,
+      "score": 100,
+      "reasons": [
+        "💎💎 融资融券优质(评分76)",
+        "💰 融资净流入0.056亿",
+        "📉📉 深度回调(-0.6%)，黄金买点",
+        "📊📊 量比完美(1.8)",
+        "�💎 市值优质(50亿)，成长空间大"
+      ],
+      "warnings": [
+        "⚠️ 换手偏高(15.2%)"
+      ],
+      "risk_level": "low",
+      "margin_info": {
+        "is_margin_eligible": true,
+        "margin_balance": 1.5,
+        "short_balance": 70,
+        "margin_ratio": 10,
+        "net_flow": 0.056,
+        "margin_score": 76,
+        "has_data": false
+      },
+      "capital_flow": {
+        "main_inflow": 1.14,
+        "is_inflow": true,
+        "flow_strength": "strong_in",
+        "has_data": false
+      },
+      "board_type": {
+        "type": "sz",
+        "name": "深市主板",
+        "color": "#00cec9",
+        "allowed": true
+      },
+      "industry": "传媒",
+      "kline": [
+        {
+          "date": "2026-01-26",
+          "open": 11.34,
+          "close": 11.43,
+          "high": 11.46,
+          "low": 11.16,
+          "volume": 105979
+        },
+        {
+          "date": "2026-01-27",
+          "open": 11.31,
+          "close": 11.42,
+          "high": 11.46,
+          "low": 11.13,
+          "volume": 90855
+        },
+        {
+          "date": "2026-01-28",
+          "open": 11.36,
+          "close": 11.38,
+          "high": 11.6,
+          "low": 11.25,
+          "volume": 99396
+        },
+        {
+          "date": "2026-01-29",
+          "open": 11.27,
+          "close": 11.56,
+          "high": 11.62,
+          "low": 11.11,
+          "volume": 139540
+        },
+        {
+          "date": "2026-01-30",
+          "open": 11.48,
+          "close": 12.15,
+          "high": 12.68,
+          "low": 11.25,
+          "volume": 397305
+        },
+        {
+          "date": "2026-02-02",
+          "open": 12.39,
+          "close": 12.28,
+          "high": 12.95,
+          "low": 12.26,
+          "volume": 359729
+        },
+        {
+          "date": "2026-02-03",
+          "open": 12.36,
+          "close": 12.55,
+          "high": 13.0,
+          "low": 12.3,
+          "volume": 259731
+        },
+        {
+          "date": "2026-02-04",
+          "open": 12.55,
+          "close": 12.12,
+          "high": 12.89,
+          "low": 12.02,
+          "volume": 212646
+        },
+        {
+          "date": "2026-02-05",
+          "open": 11.9,
+          "close": 13.33,
+          "high": 13.33,
+          "low": 11.9,
+          "volume": 282277
+        },
+        {
+          "date": "2026-02-06",
+          "open": 13.2,
+          "close": 13.25,
+          "high": 13.89,
+          "low": 12.9,
+          "volume": 531075
+        }
+      ],
+      "trade_points": {
+        "buy_price": 13.25,
+        "buy_timing": "立即买入",
+        "stop_loss": 12.59,
+        "stop_loss_percent": -5.0,
+        "target_price": 13.91,
+        "target_percent": 5.0,
+        "risk_reward_ratio": 1.0
+      },
+      "ai_analysis": "走势平稳，量价配合好。适合平衡型策略，分散风险。可适量持有，关注动态。"
+    },
+    {
+      "code": "301491",
+      "name": "汉桑科技",
+      "price": 56.35,
+      "pre_close": 56.8,
+      "open": 56.01,
+      "volume": 15234.0,
+      "change": -0.45,
+      "change_percent": -0.79,
+      "high": 56.88,
+      "low": 55.81,
+      "amount": 8577.0,
+      "turnover": 5.33,
+      "pe_ratio": 33.28,
+      "market_cap": 72.69,
+      "total_value": 3.48,
+      "volume_ratio": 1.74,
+      "_pre_score": 65,
+      "score": 100,
+      "reasons": [
+        "💎💎 融资融券优质(评分75)",
+        "📉📉 深度回调(-0.8%)，黄金买点",
+        "📊📊 量比完美(1.7)",
+        "�💎 市值优质(73亿)，成长空间大",
+        "🔄 换手完美(5.3%)",
+        "🚀 创业板成长股"
+      ],
+      "warnings": [
+        "⚠️ 融资净流出0.04亿"
+      ],
+      "risk_level": "low",
+      "margin_info": {
+        "is_margin_eligible": true,
+        "margin_balance": 2.0,
+        "short_balance": 75,
+        "margin_ratio": 20,
+        "net_flow": -0.04,
+        "margin_score": 75,
+        "has_data": false
+      },
+      "capital_flow": {
+        "main_inflow": -0.52,
+        "is_inflow": false,
+        "flow_strength": "weak_out",
+        "has_data": false
+      },
+      "board_type": {
+        "type": "cyb",
+        "name": "创业板",
+        "color": "#6c5ce7",
+        "allowed": true
+      },
+      "industry": "信息技术",
+      "kline": [
+        {
+          "date": "2026-01-26",
+          "open": 60.58,
+          "close": 59.18,
+          "high": 60.58,
+          "low": 59.1,
+          "volume": 11477
+        },
+        {
+          "date": "2026-01-27",
+          "open": 58.99,
+          "close": 58.9,
+          "high": 59.16,
+          "low": 57.02,
+          "volume": 12389
+        },
+        {
+          "date": "2026-01-28",
+          "open": 58.99,
+          "close": 57.58,
+          "high": 58.99,
+          "low": 57.51,
+          "volume": 9978
+        },
+        {
+          "date": "2026-01-29",
+          "open": 57.7,
+          "close": 56.79,
+          "high": 57.9,
+          "low": 56.75,
+          "volume": 8995
+        },
+        {
+          "date": "2026-01-30",
+          "open": 56.98,
+          "close": 57.81,
+          "high": 57.95,
+          "low": 56.4,
+          "volume": 8481
+        },
+        {
+          "date": "2026-02-02",
+          "open": 57.8,
+          "close": 55.8,
+          "high": 57.8,
+          "low": 55.72,
+          "volume": 13258
+        },
+        {
+          "date": "2026-02-03",
+          "open": 55.9,
+          "close": 56.56,
+          "high": 56.79,
+          "low": 55.9,
+          "volume": 7844
+        },
+        {
+          "date": "2026-02-04",
+          "open": 56.4,
+          "close": 56.42,
+          "high": 56.88,
+          "low": 56.06,
+          "volume": 6343
+        },
+        {
+          "date": "2026-02-05",
+          "open": 56.43,
+          "close": 56.8,
+          "high": 57.1,
+          "low": 56.19,
+          "volume": 7885
+        },
+        {
+          "date": "2026-02-06",
+          "open": 56.01,
+          "close": 56.35,
+          "high": 56.88,
+          "low": 55.81,
+          "volume": 15234
+        }
+      ],
+      "trade_points": {
+        "buy_price": 56.35,
+        "buy_timing": "立即买入",
+        "stop_loss": 53.53,
+        "stop_loss_percent": -5.0,
+        "target_price": 59.17,
+        "target_percent": 5.0,
+        "risk_reward_ratio": 1.0
+      },
+      "ai_analysis": "走势：股价小幅下跌，但总体稳定。\n量价：交易活跃，价格变化不大。\n理由：市值适中，风险适中，适合平衡策略。\n建议：可考虑适量买入，长期持有。"
+    }
+  ],
+  "market_environment": {
+    "status": "sideways",
+    "description": "震荡整理行情",
+    "advice": "波段操作，快进快出",
+    "strategy_adjust": {
+      "change_min": -2,
+      "change_max": 5
+    },
+    "statistics": {
+      "total_stocks": 4909,
+      "up_count": 2297,
+      "down_count": 2130,
+      "up_ratio": 46.8,
+      "avg_change": 0.22,
+      "avg_volume_ratio": 0.88
+    },
+    "timestamp": "2026-02-08 07:24:25"
+  },
+  "criteria": {
+    "change_range": "-2.0% ~ 5.0%",
+    "volume_ratio_range": "1.5 ~ 3.0",
+    "market_cap_max": "≤160.0亿",
+    "strategy": "balanced"
+  }
+}
